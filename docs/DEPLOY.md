@@ -360,19 +360,49 @@ Ship the resulting `.tar.gz` files off-box (rsync/rclone to another host or obje
 
 ## 6. Restoring from a Backup
 
-Applies to both deployment paths above. **This has not been exercised against a real production incident** — treat it as a starting point and do a supervised dry run (restore into a scratch directory, confirm the app starts and data looks right) before you ever need it for real.
+### Docker (primary path): `scripts/restore.sh`
+
+`scripts/restore.sh` wraps the whole restore in one command — it verifies the
+chosen backup contains `relay.db`, **safety-nets the current volume** (copies
+it to `./backups/data-before-restore-<timestamp>` so a wrong backup never
+destroys the only copy of your data), wipes + extracts the backup **preserving
+the non-root relay user's file ownership** (otherwise the app/relay containers
+can't write back to it), then starts the stack and waits for both services to
+report healthy. The stack must be stopped first:
+
+```bash
+docker compose down
+./scripts/restore.sh                                  # newest backup in ./backups/
+./scripts/restore.sh backups/app-data-<timestamp>.tar.gz   # pick a specific one
+```
+
+On success it prints the next steps (`curl …/api/status`, then remove the
+`data-before-restore-*` safety net once you've confirmed a known account is
+present). The full backup → wipe → restore cycle was exercised against a live
+stack (real account created, volume wiped, restored, stack healthy, account
+still present) — the script is safe to use as-is, but do your own supervised
+dry run before you rely on it in an incident.
+
+### Manual / bare-metal (PM2) path
 
 1. Stop the app so nothing writes to the data directory during restore:
    - Docker: `docker compose down`
    - PM2: `pm2 stop all`
 2. Copy the current (possibly corrupted) data directory's contents out as a safety net before touching anything, in case the chosen backup turns out to be the wrong one:
-   - Docker: `docker run --rm -v <app-data-volume>:/data -v $(pwd):/backup alpine cp -a /data /backup/data-before-restore` (find the volume name with `docker volume ls`, or reuse `resolve_app_data_volume` from `scripts/backup.sh`)
+   - Docker: `docker run --rm -v <app-data-volume>:/data -v $(pwd):/backup alpine cp -a /data /backup/data-before-restore` (find the volume name with `docker volume ls`, or reuse the project-name resolution from `scripts/restore.sh`)
    - PM2: `cp -a .data .data-before-restore`
 3. Clear the data directory, then extract the chosen backup into it:
    - Docker: `docker run --rm -v <app-data-volume>:/data alpine sh -c 'rm -rf /data/* /data/.[!.]*' && docker run --rm -v <app-data-volume>:/data -v $(pwd)/backups:/backup alpine tar xzf /backup/app-data-<timestamp>.tar.gz -C /data`
    - PM2: `rm -rf .data/* .data/.[!.]* && tar xzf backups/app-data-<timestamp>.tar.gz -C .data`
 4. Restart: `docker compose up -d` or `pm2 start ecosystem.config.js`.
 5. Confirm the app comes up healthy (`docker compose ps`, or `pm2 status` + `curl localhost:3000/api/health`) and that a known account/conversation from before the incident is actually present, before deleting the `-before-restore` copy from step 2.
+
+> Docker note: the manual `tar xzf` above runs as root but tar carries the
+> backup's recorded `owner:group` through, so the restored `relay.db` keeps
+> the relay user's (uid 100) ownership and stays writable by the non-root
+> containers. If you ever see `SQLITE_CANTOPEN` after a restore, the
+extracted files were left root-owned — `chown 100:101` them in a throwaway
+container.
 
 Restoring rolls back to the backup's point in time — any writes between that backup and the incident are gone. If that gap matters more than the cost of running it, add Litestream (mentioned in the Docker Data Persistence section above) for near-zero-RPO continuous backup instead of relying solely on the daily snapshot.
 

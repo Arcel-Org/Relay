@@ -18,6 +18,8 @@ device. No cloud history. No social graph. No ads. No tracking.
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://docs.docker.com/compose/)
 [![License](https://img.shields.io/badge/license-MIT%20%2F%20AGPL--3.0-blue)](#license)
 
+![Relay messenger](docs/screenshots/messenger.png)
+
 </div>
 
 ---
@@ -67,40 +69,23 @@ allows:
 - **Zero data retention** — minimal metadata, no message logging, no social
   graph
 
-## Quickstart (Docker — recommended)
+## Quickstart (Docker only — one command)
 
-Relay ships as a Docker Compose deployment: the web app and the WebSocket
-relay server run as two services from one `docker-compose.yml`, plus an
-optional TURN server for call media relay.
-
-**Requirements:** Docker **and Docker Compose v2** (the `docker compose`
-plugin — not the legacy standalone `docker-compose`). 2 GB free RAM is plenty.
+You need **only Docker** (with the Compose v2 plugin) and `openssl` — no
+Node.js, no npm, nothing else. Everything runs as a single Compose pod
+(**app** `:3000` + **relay** `:8080`) built from one command:
 
 ```bash
-# 1. Clone
-git clone <your-public-repo-url> relay
-cd relay
-
-# 2. One-command setup — generates secrets with openssl, asks for your
-#    public URL, writes .env, and boots the stack
-./scripts/setup.sh --up
-
-#    Or explicitly:
-#    ./scripts/setup.sh --url https://relay.example.com --up
+git clone --depth 1 https://github.com/Arcel-Org/Relay.git && cd Relay && ./scripts/setup.sh --up
 ```
 
-What happens:
-
-1. `setup.sh` checks for Docker + openssl.
-2. It generates `SESSION_SECRET` and `TOTP_ENCRYPTION_KEY` with
-   `openssl rand -hex 32` and asks for your public URL.
-3. From that one URL it derives everything the stack needs:
-   `NEXT_PUBLIC_RELAY_URL` (`wss://`), `WS_ALLOWED_ORIGINS`, and the
-   `WEBAUTHN_RP_ID` / `WEBAUTHN_ORIGIN` passkey values.
-4. It writes `.env` **without ever overwriting an existing secret** —
-   re-running it is safe.
-5. `docker compose up -d --build` builds and starts **app** (`:3000`) and
-   **relay** (`:8080`).
+`setup.sh` checks for Docker + openssl, generates `SESSION_SECRET` and
+`TOTP_ENCRYPTION_KEY` with `openssl rand -hex 32`, and asks for your public
+URL. From that one URL it derives everything the stack needs:
+`NEXT_PUBLIC_RELAY_URL` (`wss://`), `WS_ALLOWED_ORIGINS`, and the
+`WEBAUTHN_RP_ID` / `WEBAUTHN_ORIGIN` passkey values. It writes `.env`
+**without ever overwriting an existing secret** — re-running is safe — then
+builds and starts the pod.
 
 Verify it's live:
 
@@ -117,6 +102,23 @@ needs real HTTPS to work in a browser. If you're behind a proxy, set
 (TLS, backups, updates, TURN for calls, multi-region) is in
 [`docs/DEPLOY.md`](docs/DEPLOY.md).
 
+### Daily operations (backup / update / restore)
+
+A few scripts cover the routine lifecycle — all idempotent and safe to
+re-run:
+
+```bash
+./scripts/backup.sh              # snapshot the app-data volume to ./backups/ (or schedule the systemd timer)
+./scripts/update.sh              # backup + build + deploy + auto-rollback on failure
+./scripts/update.sh --rollback   # revert to the last-known-good images
+
+docker compose down              # then restore (never wipe under a live stack):
+./scripts/restore.sh             # restore the newest backup in ./backups/
+```
+
+The full backup → restore cycle is described in [`docs/DEPLOY.md`](docs/DEPLOY.md)
+§5–§6 and has been exercised against a live stack.
+
 ### Troubleshooting
 
 | Symptom | Cause / fix |
@@ -126,6 +128,18 @@ needs real HTTPS to work in a browser. If you're behind a proxy, set
 | Fresh volume errors like `SQLITE_CANTOPEN` (err 14) | The app runs as a non-root user; an empty named volume is root-owned. The image ships a marker that fixes ownership on first mount — if you mount your own pre-existing volume, ensure it's writable by UID 1000. |
 | `WS_ALLOWED_ORIGINS` missing | The relay refuses to start without it. `setup.sh` sets it from your URL; if writing `.env` by hand, it must list your production origin(s). |
 | Dev `.env` values leak into the container | `PORT`, `RELAY_PORT`, and `RELAY_HOST` are pinned inside compose so a dev `.env` can't silently break the container. |
+
+## Screenshots
+
+<div align="center">
+
+![Inbox](docs/screenshots/inbox.png)&nbsp;
+![Account](docs/screenshots/account.png)
+
+![Login](docs/screenshots/login.png)&nbsp;
+![Landing](docs/screenshots/landing.png)
+
+</div>
 
 ## How it works
 
