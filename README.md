@@ -133,7 +133,6 @@ The full backup → restore cycle is described in [`docs/DEPLOY.md`](docs/DEPLOY
 
 <div align="center">
 
-![Inbox](docs/screenshots/inbox.png)&nbsp;
 ![Account](docs/screenshots/account.png)
 
 ![Login](docs/screenshots/login.png)&nbsp;
