@@ -140,6 +140,21 @@ The full backup → restore cycle is described in [`docs/DEPLOY.md`](docs/DEPLOY
 
 </div>
 
+### Themes
+
+Nine selectable themes (default: crimson). A few of them, on the live
+messenger:
+
+<div align="center">
+
+![Ocean](docs/screenshots/messenger-ocean.png)
+
+![Arctic (light)](docs/screenshots/messenger-arctic.png)&nbsp;
+![Violet](docs/screenshots/messenger-violet.png)&nbsp;
+![Forest](docs/screenshots/messenger-forest.png)
+
+</div>
+
 ## How it works
 
 ```
@@ -150,15 +165,15 @@ The full backup → restore cycle is described in [`docs/DEPLOY.md`](docs/DEPLOY
 │  • encrypt/decrypt       │                │  ┌────────────┐   ┌─────────┐  │
 │  • local encrypted store │  WSS (relay)   │  │  app :3000 │   │ relay   │  │
 │    (IndexedDB, HKDF)     │  ────────────▶ │  │  Next.js   │   │ :8080   │  │
-└──────────────────────────┘                │  │  server    │   │WebSocket│  │
+└──────────────────────────┘                │  │  server    │   │ WebSocket│  │
                                             │  └─────┬──────┘   └────┬────┘  │
                                             │        └──────┬─────────┘      │
-                                            │               ▼                │
-                                            │        ┌──────────────┐        │
-                                            │        │ SQLite       │        │
-                                            │        │ (sessions,   │        │
-                                            │        │  keys, dirs) │        │
-                                            │        └──────────────┘        │
+                                            │               ▼               │
+                                            │        ┌──────────────┐       │
+                                            │        │ SQLite       │       │
+                                            │        │ (sessions,   │       │
+                                            │        │  keys, dirs) │       │
+                                            │        └──────────────┘       │
                                             └────────────────────────────────┘
 ```
 

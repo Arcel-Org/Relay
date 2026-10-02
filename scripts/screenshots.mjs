@@ -75,30 +75,20 @@ async function getOwnRelayId(page) {
   return m[0];
 }
 
-// Set display name (and optionally claim a username) via the dedicated
-// /app/account route — cleaner selectors than the auth panel. Wrapped in
-// try/catch so a UI hiccup never blocks the core screenshots.
-async function setProfile(page, displayName, username) {
-  try {
-    await page.goto(`${APP_URL}/app/account`, { waitUntil: 'domcontentloaded' });
-    await sleep(1800);
-    if (displayName) {
-      await fill(page, 'input[placeholder="e.g., Alice Smith"]', displayName);
-      await click(page, page.locator('button:has-text("Save Display Name")'));
-      await sleep(1500);
-    }
-    if (username) {
-      await fill(page, 'input[placeholder="myusername"]', username);
-      await click(page, page.locator('button:has-text("Claim Username")'));
-      await sleep(1500);
-    }
-    console.log(`  profile → ${displayName || '(no name)'}${username ? ' @' + username : ''}`);
-  } catch (e) {
-    console.log(`  profile step failed (${e.message.split('\n')[0]}) — continuing`);
-  } finally {
-    await page.goto(`${APP_URL}/app`, { waitUntil: 'domcontentloaded' }).catch(() => {});
-    await sleep(1500);
-  }
+// Set display name + claim username via the profile API from inside the
+// page (same-origin fetch carries the session cookie). No UI navigation,
+// no reload — the user stays on their live messenger, which is the only
+// state guaranteed to render in headless.
+async function setProfileAPI(page, relayId, displayName, username) {
+  const out = await page.evaluate(async ({ relayId, displayName, username }) => {
+    try {
+      const body = { relayId, displayName: displayName || undefined, username: username || undefined };
+      const r = await fetch('/api/profile/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      return r.status + ' ' + (await r.text()).slice(0, 100);
+    } catch (e) { return 'EXC ' + e.message; }
+  }, { relayId, displayName, username });
+  await sleep(1200);
+  console.log(`  profile ${displayName || '(none)'} @${username || '(none)'} → ${out}`);
 }
 
 async function addContact(page, relayId) {
@@ -176,10 +166,13 @@ await signup(pA); await signup(pB); await signup(pC);
 const [idA, idB, idC] = [await getOwnRelayId(pA), await getOwnRelayId(pB), await getOwnRelayId(pC)];
 console.log('users:', idA.slice(0, 8), idB.slice(0, 8), idC.slice(0, 8));
 
-// Set display names + usernames on B and C AFTER contacts+messaging (doing
-// it before triggers the Add Contact — see addContact idle issue), then A
-// reloads to pick up the friendly names (contact rows re-render from the
-// stored display names).
+// Set display names + usernames via the profile API (no navigation, no
+// reload — every user stays on their live messenger). A's add-contact
+// profile lookups then return the friendly names.
+console.log('setting profiles via API...');
+await setProfileAPI(pB, idB, 'Maya', 'maya' + rand4());
+await setProfileAPI(pC, idC, 'Zane', null);
+await setProfileAPI(pA, idA, 'Ava', 'ava' + rand4());
 
 // Contacts
 console.log('adding contacts...');
@@ -206,58 +199,52 @@ await openConversation(pC, 'Ava', idA);
 await send(pC, "hey Ava, can you ping the group later?");
 await sleep(1500);
 
-// Set A's own profile (Ava) — done after messaging so A's add/contact flow
-// never left the empty-state trigger territory.
-console.log('setting A profile...');
-await setProfile(pA, 'Ava', 'ava' + rand4());
+// A stays on its live messenger, open on the Maya conversation.
+await openConversation(pA, 'Maya', idB).catch(() => {});
+await sleep(800);
 
-// Wait for the messenger to be fully loaded/re-hydrated before shooting — a
-// too-early shot captures a loading or lock screen (seen as several
-// byte-identical small PNGs).
+// Wedge the composer so the open Maya conversation is clearly in view, wait
+// for it, then capture the messenger on the LIVE page (no reload — reload
+// of /app renders blank in this production/headless build, so all shots are
+// taken on the live page.
 async function messengerReady(page) {
   await page.locator('textarea[placeholder="Message..."]').first().waitFor({ state: 'visible', timeout: 20000 }).catch(() => {});
-  await sleep(1500);
+  await sleep(1200);
 }
 
-// A fresh main view: multiple chats in the sidebar, C unread, B convo open
-await pA.goto(`${APP_URL}/app`, { waitUntil: 'domcontentloaded' });
-await sleep(3000);
 await openConversation(pA, 'Maya', idB).catch(() => {});
 await messengerReady(pA);
 await pA.screenshot({ path: path.join(OUT, '03-messenger.png') });
 console.log('03-messenger done');
 
-// Theme variants — set the saved theme in localStorage then reload. Each
-// fresh /app load re-hydrates contacts/chats and applies the saved theme.
-async function themeReload(theme, file) {
+// Theme variants — apply a theme to the LIVE page (data-theme attribute +
+// dark class; the CSS vars react instantly, no reload needed).
+async function themeApply(theme, file) {
   try {
-    await pA.evaluate((t) => { try { localStorage.setItem('relay:theme', t); } catch {} location.reload(); }, theme);
-    await sleep(3000);
-    await messengerReady(pA);
-    await pA.screenshot({ path: path.join(OUT, file) });
-    console.log(file + ' done');
-  } catch (e) { console.log(file + ' failed: ' + e.message.split('\n')[0]); }
+    await pA.evaluate((t) => {
+      try { localStorage.setItem('relay:theme', t); } catch {}
+      document.documentElement.setAttribute('data-theme', t);
+      if (t === 'arctic') document.documentElement.classList.remove('dark');
+      else document.documentElement.classList.add('dark');
+    }, theme);
+    await sleep(900);
+    if (file) { await pA.screenshot({ path: path.join(OUT, file) }); console.log(file + ' done'); }
+    else console.log(theme + ' applied (no screenshot)');
+  } catch (e) { console.log((file || theme) + ' failed: ' + e.message.split('\n')[0]); }
 }
-await themeReload('ocean', '04-messenger-ocean.png');
-await themeReload('arctic', '05-messenger-arctic.png');
+await themeApply('ocean', '04-messenger-ocean.png');
+await themeApply('arctic', '05-messenger-arctic.png');
+await themeApply('violet', '06-messenger-violet.png');
+await themeApply('forest', '07-messenger-forest.png');
+await themeApply('crimson', null); // restore default before the account shot
 
-// Theme picker — a static route; screenshot the full 9-theme grid.
+// Account settings — an in-app panel on the live page, not a navigation.
 try {
-  await pA.goto(`${APP_URL}/app/settings`, { waitUntil: 'domcontentloaded' });
-  await sleep(3200);
-  await pA.screenshot({ path: path.join(OUT, '06-themes.png') });
-  console.log('06-themes done');
-} catch (e) { console.log('06-themes failed: ' + e.message.split('\n')[0]); }
-
-// Account settings
-try {
-  await pA.goto(`${APP_URL}/app`, { waitUntil: 'domcontentloaded' });
-  await sleep(2500);
   await click(pA, pA.locator('[title="Account Settings"]'));
   await sleep(1000);
-  await pA.screenshot({ path: path.join(OUT, '07-account.png') });
-  console.log('07-account done');
-} catch (e) { console.log('07-account failed: ' + e.message.split('\n')[0]); }
+  await pA.screenshot({ path: path.join(OUT, '08-account.png') });
+  console.log('08-account done');
+} catch (e) { console.log('08-account failed: ' + e.message.split('\n')[0]); }
 
 await ctA.close(); await ctB.close(); await ctC.close();
 await browser.close();
