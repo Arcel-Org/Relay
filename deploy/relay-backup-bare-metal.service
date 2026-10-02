@@ -1,0 +1,20 @@
+# Systemd service for a one-shot bare-metal/PM2 backup run — triggered by
+# relay-backup-bare-metal.timer, not enabled/started directly. See
+# docs/DEPLOY.md's PM2 Backups section.
+#
+# Install:
+#   sudo cp deploy/relay-backup-bare-metal.service deploy/relay-backup-bare-metal.timer /etc/systemd/system/
+#   sudo systemctl edit relay-backup-bare-metal.service   # set WorkingDirectory (see below)
+#   sudo systemctl enable --now relay-backup-bare-metal.timer
+
+[Unit]
+Description=Relay bare-metal data directory backup
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+# Override via `systemctl edit relay-backup-bare-metal.service` — must point
+# at the repo root (the directory containing scripts/ and, by default, .data/).
+WorkingDirectory=/opt/relay
+ExecStart=/opt/relay/scripts/backup-bare-metal.sh

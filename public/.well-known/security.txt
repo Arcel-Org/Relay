@@ -1,0 +1,11 @@
+# Security disclosure policy for Arcel, per RFC 9116.
+# https://www.rfc-editor.org/rfc/rfc9116
+#
+# Renew this file (bump Expires) at least annually — an expired
+# security.txt is treated by scanners/researchers as stale/unmaintained.
+
+Contact: mailto:security@arcel.org
+Expires: 2027-07-24T00:00:00.000Z
+Preferred-Languages: en
+Canonical: https://arcel.org/.well-known/security.txt
+Policy: https://arcel.org/legal/privacy#security

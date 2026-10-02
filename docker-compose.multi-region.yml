@@ -1,0 +1,212 @@
+version: "3.9"
+
+# ─────────────────────────────────────────────────────────────────────────
+# Multi-region deployment template.
+#
+# There is no separate "Multi-Region Deployment" section in docs/DEPLOY.md —
+# everything you need is in this header comment plus
+# deploy/nginx-multi-region.conf.example. The short version:
+#
+#   - The relay server (server/relay-node.ts) keeps all state (connected
+#     clients, pendingMessages, dedupKeys, presence subscriptions) in plain
+#     in-memory Maps, private to one Node process. There is no cross-region
+#     shared state — this file does NOT create a cluster.
+#   - What it DOES give you: N independent, fully self-contained regional
+#     stacks (app + relay [+ optional coturn]), one per VPS, so you can run
+#     a region close to each user population for lower latency, and treat
+#     the others as either separate always-on regions (users pick one) or
+#     cold-failover targets (DNS routes around a dead region).
+#   - This is otherwise identical to docker-compose.yml. Isolation between
+#     regions comes from Docker Compose's own project-name namespacing
+#     (COMPOSE_PROJECT_NAME), NOT from anything region-specific baked into
+#     the service definitions below — so the exact same file is deployed,
+#     unmodified, to every VPS.
+#
+# Typical usage — one VPS per region (recommended; ports don't need to
+# differ since each region is a separate host):
+#
+#   # on each VPS:
+#   cp .env.example .env
+#   echo "COMPOSE_PROJECT_NAME=relay-us-east" >> .env   # unique per region
+#   echo "REGION=us-east" >> .env                        # informational only — see below
+#   docker compose -f docker-compose.multi-region.yml up -d
+#
+# COMPOSE_PROJECT_NAME is read directly out of the project-directory .env
+# file by Compose itself (before the compose file is even parsed) and
+# namespaces every container/volume/network it creates — see
+# https://docs.docker.com/compose/environment-variables/envvars/#compose_project_name.
+# On separate VPSs this is mostly cosmetic (there's nothing else to collide
+# with), but set it anyway: it's what makes the secondary use case below safe.
+#
+# Secondary usage — multiple regions co-located on one host (e.g. local
+# testing of the multi-region topology, or a low-budget setup that accepts
+# sharing one physical box): COMPOSE_PROJECT_NAME becomes REQUIRED (it's
+# what keeps each region's app-data volume and containers from colliding
+# with the others), and set distinct APP_PORT/RELAY_PORT per region so
+# nginx can address each one (see deploy/nginx-multi-region.conf.example,
+# section B). NOTE: coturn below uses network_mode: host, which claims the
+# whole host's network stack — you can only run ONE region's coturn per
+# physical host this way. Co-located regions must either share one coturn
+# or enable the turn profile on only one of them.
+#
+# REGION is passed through as a container label purely for your own
+# bookkeeping (docker inspect, log aggregation, monitoring dashboards) —
+# nothing in the application code reads it. There is currently no
+# in-app concept of "region"; each stack is just an independent deployment
+# that happens to know its own name.
+# ─────────────────────────────────────────────────────────────────────────
+
+services:
+  # ── Next.js frontend ────────────────────────────────────────────────
+  app:
+    build: .
+    restart: unless-stopped
+    labels:
+      - "region=${REGION:?Set REGION in this VPS's .env, e.g. us-east, eu-west, ap-south}"
+    # Same loopback-only reasoning as docker-compose.yml: this is meant to
+    # sit behind this region's own nginx (deploy/nginx-multi-region.conf.example,
+    # section A), not be reachable directly. APP_PORT only needs to change
+    # from the default if you're co-locating multiple regions on one host.
+    ports:
+      - "127.0.0.1:${APP_PORT:-3000}:3000"
+    # Same reasoning as docker-compose.yml's app service — without this,
+    # Docker's default nofile limit (often inherited from the host, commonly
+    # 1024 soft) caps concurrent HTTP connections well below what a real
+    # deployment needs. This file previously omitted it despite claiming to
+    # be "otherwise identical to docker-compose.yml."
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    # Hardening — see docker-compose.yml's matching comment on its app
+    # service. This file previously omitted it too despite claiming to be
+    # "otherwise identical to docker-compose.yml."
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2G
+    environment:
+      - NODE_ENV=production
+      # Deliberately NOT set to a cross-host relay URL. lib/messaging/connection.ts
+      # falls back to connecting the WebSocket to the page's OWN origin whenever
+      # NEXT_PUBLIC_RELAY_URL is unset/localhost, which is exactly what you want
+      # here: a browser loaded from https://eu.relay.example.com should talk to
+      # the EU relay, not some other region's. Leave this unset per region unless
+      # you have a specific reason to point a region's frontend at a relay that
+      # isn't its own local one.
+    env_file:
+      - .env
+    volumes:
+      - app-data:/app/.data
+    depends_on:
+      relay:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  # ── WebSocket relay server ──────────────────────────────────────────
+  relay:
+    build: .
+    restart: unless-stopped
+    labels:
+      - "region=${REGION:?Set REGION in this VPS's .env, e.g. us-east, eu-west, ap-south}"
+    ports:
+      - "127.0.0.1:${RELAY_PORT:-8080}:8080"
+    # Each open WebSocket connection holds at least one file descriptor —
+    # same reasoning as docker-compose.yml's relay service (see there for
+    # the full explanation of why this matters at MAX_WS_CONNECTIONS scale).
+    # This file previously omitted it despite claiming to be "otherwise
+    # identical to docker-compose.yml" — the exact same EMFILE ceiling bug
+    # already found and fixed once there was silently reintroduced here.
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    # Hardening — see docker-compose.yml's matching comment on its relay
+    # service.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2G
+    environment:
+      - NODE_ENV=production
+      # RELAY_PORT (not PORT) for the same reason docker-compose.yml's relay
+      # service uses it: the base image's Dockerfile sets a global
+      # `ENV PORT=3000` (inherited here since both services build from the
+      # same image), and relay-node.ts reads RELAY_PORT first specifically so
+      # the relay doesn't depend on a plain PORT override happening to match.
+      - RELAY_PORT=8080
+    env_file:
+      - .env
+    volumes:
+      - app-data:/app/.data
+    command: ["node", "dist-server/server/relay-node.js"]
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 8080 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # ── TURN server for call media relay (optional, per-region) ─────────
+  # Same coturn setup as docker-compose.yml. Running this per region gets
+  # each region's calls the lowest-latency media relay; see the
+  # network_mode: host caveat in the header comment above if co-locating
+  # more than one region on a single physical host.
+  coturn:
+    # Pinned by digest — see docker-compose.yml's matching coturn comment.
+    # Keep this in sync with that file's digest; both should be re-pinned
+    # together when actually upgrading.
+    image: coturn/coturn@sha256:0feee4fc1f45c7c053c8fee3e1ab941b1a1b9a0429bc01e18126735410770bfd # latest as of 2026-07-24
+    profiles: ["turn"]
+    restart: unless-stopped
+    network_mode: host
+    labels:
+      - "region=${REGION:?Set REGION in this VPS's .env, e.g. us-east, eu-west, ap-south}"
+    # Deliberately NOT `${TURN_SECRET:?...}` here — see docker-compose.yml's
+    # matching comment: Compose interpolates every service's environment at
+    # parse time regardless of active profiles, so a hard-require in this
+    # YAML broke even a profile-less `docker compose up -d`. Enforced in the
+    # entrypoint below instead, which only runs when the turn profile is
+    # actually enabled. (REGION above is intentionally still hard-required —
+    # every service in this file needs it, unlike TURN_SECRET which is
+    # coturn-specific and optional.)
+    environment:
+      - TURN_SECRET=${TURN_SECRET:-}
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        set -e
+        if [ -z "$$TURN_SECRET" ]; then
+          echo "TURN_SECRET is not set — set it in this VPS's .env before enabling the turn profile." >&2
+          exit 1
+        fi
+        conf=$$(mktemp)
+        cat > "$$conf" <<EOF
+        use-auth-secret
+        static-auth-secret=$$TURN_SECRET
+        realm=relay
+        no-cli
+        min-port=49152
+        max-port=49200
+        log-file=stdout
+        EOF
+        chmod 600 "$$conf"
+        exec turnserver -c "$$conf"
+
+volumes:
+  app-data:

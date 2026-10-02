@@ -1,0 +1,562 @@
+@import "tailwindcss";
+@config "../tailwind.config.ts";
+
+@layer base {
+  /*
+   * Relay Theme System — 9 palettes.
+   * Tokens used with Tailwind opacity modifiers (bg-relay-accent/30 etc.)
+   * are stored as space-separated R G B triplets; tailwind.config wraps
+   * them as rgb(var(--x) / <alpha-value>).
+   */
+
+  :root,
+  [data-theme="crimson"] {
+    color-scheme: dark;
+    --relay-bg: 10 10 11;
+    --relay-surface: 20 20 22;
+    --relay-surface-hover: #1d1d20;
+    --relay-elevated: #24242a;
+    --relay-border: rgba(255,255,255,0.035);
+    --relay-border-light: rgba(255,255,255,0.07);
+    --relay-accent: 225 29 29;
+    --relay-accent-foreground: #ffffff;
+    --relay-accent-muted: 56 10 12;
+    --relay-success: #34d399;
+    --relay-danger: 239 68 68;
+    --relay-text-primary: #f4f4f5;
+    --relay-text-secondary: #a1a1aa;
+    --relay-text-muted: 113 113 122;
+  }
+
+  [data-theme="ocean"] {
+    color-scheme: dark;
+    --relay-bg: 9 13 22;
+    --relay-surface: 17 24 39;
+    --relay-surface-hover: #1a2337;
+    --relay-elevated: #222d45;
+    --relay-border: rgba(255,255,255,0.035);
+    --relay-border-light: rgba(255,255,255,0.07);
+    --relay-accent: 96 165 250;
+    --relay-accent-foreground: #ffffff;
+    --relay-accent-muted: 23 37 84;
+    --relay-success: #34d399;
+    --relay-danger: 248 113 113;
+    --relay-text-primary: #f3f4f6;
+    --relay-text-secondary: #9ca3af;
+    --relay-text-muted: 107 114 128;
+  }
+
+  [data-theme="forest"] {
+    color-scheme: dark;
+    --relay-bg: 9 14 12;
+    --relay-surface: 17 26 21;
+    --relay-surface-hover: #1a2520;
+    --relay-elevated: #223029;
+    --relay-border: rgba(255,255,255,0.035);
+    --relay-border-light: rgba(255,255,255,0.07);
+    --relay-accent: 16 185 129;
+    --relay-accent-foreground: #ffffff;
+    --relay-accent-muted: 6 46 34;
+    --relay-success: #34d399;
+    --relay-danger: 248 113 113;
+    --relay-text-primary: #f1f5f2;
+    --relay-text-secondary: #9ca9a2;
+    --relay-text-muted: 100 115 108;
+  }
+
+  [data-theme="golden"] {
+    color-scheme: dark;
+    --relay-bg: 13 11 8;
+    --relay-surface: 24 20 13;
+    --relay-surface-hover: #211c13;
+    --relay-elevated: #2a2319;
+    --relay-border: rgba(255,255,255,0.035);
+    --relay-border-light: rgba(255,255,255,0.07);
+    --relay-accent: 217 150 75;
+    --relay-accent-foreground: #ffffff;
+    --relay-accent-muted: 56 37 12;
+    --relay-success: #34d399;
+    --relay-danger: 239 68 68;
+    --relay-text-primary: #f5f1e8;
+    --relay-text-secondary: #a69e8a;
+    --relay-text-muted: 115 106 88;
+  }
+
+  [data-theme="violet"] {
+    color-scheme: dark;
+    --relay-bg: 11 10 18;
+    --relay-surface: 21 20 32;
+    --relay-surface-hover: #1d1b2c;
+    --relay-elevated: #262338;
+    --relay-border: rgba(255,255,255,0.035);
+    --relay-border-light: rgba(255,255,255,0.07);
+    --relay-accent: 139 92 246;
+    --relay-accent-foreground: #ffffff;
+    --relay-accent-muted: 37 24 66;
+    --relay-success: #34d399;
+    --relay-danger: 244 114 182;
+    --relay-text-primary: #f3f1f7;
+    --relay-text-secondary: #a29cb0;
+    --relay-text-muted: 110 104 124;
+  }
+
+  [data-theme="arctic"] {
+    color-scheme: light;
+    --relay-bg: 250 250 250;
+    --relay-surface: 255 255 255;
+    --relay-surface-hover: #f4f4f5;
+    --relay-elevated: #eeeff1;
+    --relay-border: rgba(0,0,0,0.08);
+    --relay-border-light: rgba(0,0,0,0.12);
+    --relay-accent: 24 24 27;
+    --relay-accent-foreground: #ffffff;
+    --relay-accent-muted: 228 228 231;
+    --relay-success: #059669;
+    --relay-danger: 220 38 38;
+    --relay-text-primary: #18181b;
+    --relay-text-secondary: #52525b;
+    --relay-text-muted: 161 161 170;
+  }
+
+  [data-theme="rose"] {
+    color-scheme: dark;
+    --relay-bg: 15 10 12;
+    --relay-surface: 26 18 22;
+    --relay-surface-hover: #231a1f;
+    --relay-elevated: #2c2128;
+    --relay-border: rgba(255,255,255,0.035);
+    --relay-border-light: rgba(255,255,255,0.07);
+    --relay-accent: 219 128 156;
+    --relay-accent-foreground: #ffffff;
+    --relay-accent-muted: 62 24 40;
+    --relay-success: #34d399;
+    --relay-danger: 239 68 68;
+    --relay-text-primary: #f5f0f2;
+    --relay-text-secondary: #b3a3ab;
+    --relay-text-muted: 120 102 110;
+  }
+
+  [data-theme="solar"] {
+    color-scheme: dark;
+    --relay-bg: 12 9 6;
+    --relay-surface: 22 17 12;
+    --relay-surface-hover: #1e1812;
+    --relay-elevated: #272018;
+    --relay-border: rgba(255,255,255,0.035);
+    --relay-border-light: rgba(255,255,255,0.07);
+    --relay-accent: 217 119 87;
+    --relay-accent-foreground: #ffffff;
+    --relay-accent-muted: 61 30 16;
+    --relay-success: #34d399;
+    --relay-danger: 239 68 68;
+    --relay-text-primary: #f5f1ec;
+    --relay-text-secondary: #a89b90;
+    --relay-text-muted: 120 108 96;
+  }
+
+  [data-theme="zen"] {
+    color-scheme: dark;
+    --relay-bg: 10 10 10;
+    --relay-surface: 23 23 23;
+    --relay-surface-hover: #1f1f1f;
+    --relay-elevated: #262626;
+    --relay-border: rgba(255,255,255,0.035);
+    --relay-border-light: rgba(255,255,255,0.07);
+    --relay-accent: 228 228 231;
+    --relay-accent-foreground: #0a0a0a;
+    --relay-accent-muted: 39 39 42;
+    --relay-success: #a1a1aa;
+    --relay-danger: 212 212 216;
+    --relay-text-primary: #fafafa;
+    --relay-text-secondary: #a1a1aa;
+    --relay-text-muted: 113 113 122;
+  }
+
+  body {
+    @apply bg-relay-bg text-relay-text-primary;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.08);
+    border-radius: 9999px;
+    transition: background-color 0.15s ease;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(255, 255, 255, 0.16);
+  }
+  [data-theme="arctic"] ::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 0, 0, 0.12);
+  }
+  [data-theme="arctic"] ::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(0, 0, 0, 0.22);
+  }
+}
+
+@layer components {
+  /* Panels */
+  .relay-panel {
+    @apply bg-relay-surface rounded-xl border border-relay-border;
+  }
+
+  /* Input */
+  .relay-input {
+    @apply bg-relay-bg border border-relay-border rounded-md px-3 py-2 text-sm text-relay-text-primary placeholder-relay-text-muted focus-visible:outline-none focus-visible:border-relay-accent focus-visible:ring-2 focus-visible:ring-relay-accent/40 focus-visible:ring-offset-0 transition-colors;
+  }
+
+  /* Buttons */
+  .relay-btn-primary {
+    @apply inline-flex items-center justify-center gap-1.5 bg-relay-accent text-white hover:bg-relay-accent/90 rounded-md px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .relay-btn-secondary {
+    @apply inline-flex items-center justify-center gap-1.5 bg-relay-surface-hover text-relay-text-primary hover:bg-relay-elevated rounded-md px-3 py-1.5 text-sm font-medium border border-relay-border transition-colors;
+  }
+  .relay-btn-ghost {
+    @apply inline-flex items-center justify-center gap-1.5 text-relay-text-secondary hover:text-relay-text-primary hover:bg-relay-surface-hover rounded-md px-3 py-1.5 text-sm font-medium transition-colors;
+  }
+  .relay-btn-danger {
+    @apply inline-flex items-center justify-center gap-1.5 text-relay-danger hover:bg-relay-danger/10 rounded-md px-3 py-1.5 text-sm font-medium transition-colors;
+  }
+
+  /* Section label — sleek, typographic */
+  .relay-section-label {
+    @apply text-[11px] uppercase tracking-[0.08em] text-relay-text-muted font-medium;
+  }
+
+  /* Icon button — square, consistent hit target */
+  .relay-icon-btn {
+    @apply inline-flex items-center justify-center w-8 h-8 rounded-md text-relay-text-secondary hover:text-relay-text-primary hover:bg-relay-surface-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-relay-accent/40;
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+     Marketing & legal surfaces (homepage, /legal/*).
+     Uses the canonical Relay brand palette. Independent of the in-app
+     themeable tokens above — marketing pages must stay on-brand
+     regardless of user theme.
+     ───────────────────────────────────────────────────────────────── */
+  .mk-marketing {
+    /* Light theme is the default. Explicit [data-mk-theme="dark"] flips. */
+    --mk-bg: #ffffff;
+    --mk-bg-1: #fafafa;
+    --mk-bg-2: #f5f5f5;
+    --mk-bg-3: #eeeeee;
+    --mk-border: #e5e5e5;
+    --mk-border-2: #d4d4d4;
+    --mk-text: #0a0a0a;
+    --mk-text-2: #525252;
+    --mk-text-3: #737373;
+    --mk-text-4: #a3a3a3;
+    --mk-accent: #dc2626;
+    --mk-accent-hover: #b91c1c;
+    --mk-accent-dim: rgba(220, 38, 38, 0.08);
+    --mk-accent-glow: rgba(220, 38, 38, 0.15);
+    --mk-success: #16a34a;
+    --mk-warn: #d97706;
+    --mk-shadow: rgba(0, 0, 0, 0.08);
+    color-scheme: light;
+
+    background: var(--mk-bg);
+    color: var(--mk-text);
+    font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+    min-height: 100vh;
+  }
+
+  .mk-marketing[data-mk-theme="dark"],
+  [data-mk-theme="dark"] .mk-marketing {
+    --mk-bg: #000000;
+    --mk-bg-1: #0a0a0a;
+    --mk-bg-2: #111111;
+    --mk-bg-3: #161616;
+    --mk-border: #1f1f1f;
+    --mk-border-2: #2a2a2a;
+    --mk-text: #f5f5f5;
+    --mk-text-2: #a3a3a3;
+    --mk-text-3: #737373;
+    --mk-text-4: #404040;
+    --mk-accent: #dc2626;
+    --mk-accent-hover: #ef4444;
+    --mk-accent-dim: rgba(220, 38, 38, 0.12);
+    --mk-accent-glow: rgba(220, 38, 38, 0.25);
+    --mk-success: #22c55e;
+    --mk-warn: #f59e0b;
+    --mk-shadow: rgba(0, 0, 0, 0.5);
+    color-scheme: dark;
+  }
+
+  /*
+   * Remap the in-app themed tokens (bg-relay-*, text-relay-*, etc.) onto
+   * the Relay marketing palette whenever a surface is wrapped in
+   * .mk-marketing. This lets existing auth pages (login, signup) inherit
+   * the marketing look without a full rewrite.
+   * Tailwind expects RGB triplets for tokens used with /opacity modifiers.
+   */
+  .mk-marketing {
+    --relay-bg: 255 255 255;
+    --relay-surface: 250 250 250;
+    --relay-surface-hover: #f5f5f5;
+    --relay-elevated: #eeeeee;
+    --relay-border: #e5e5e5;
+    --relay-border-light: #ededed;
+    --relay-accent: 220 38 38;
+    --relay-accent-foreground: #ffffff;
+    --relay-accent-muted: 220 38 38;
+    --relay-success: #16a34a;
+    --relay-danger: 220 38 38;
+    --relay-text-primary: #0a0a0a;
+    --relay-text-secondary: #525252;
+    --relay-text-muted: 115 115 115;
+  }
+  .mk-marketing[data-mk-theme="dark"],
+  [data-mk-theme="dark"] .mk-marketing {
+    --relay-bg: 0 0 0;
+    --relay-surface: 10 10 10;
+    --relay-surface-hover: #111111;
+    --relay-elevated: #161616;
+    --relay-border: #1f1f1f;
+    --relay-border-light: #2a2a2a;
+    --relay-accent: 220 38 38;
+    --relay-accent-foreground: #ffffff;
+    --relay-accent-muted: 220 38 38;
+    --relay-success: #22c55e;
+    --relay-danger: 220 38 38;
+    --relay-text-primary: #f5f5f5;
+    --relay-text-secondary: #a3a3a3;
+    --relay-text-muted: 115 115 115;
+  }
+
+  /* Auth pages use Tailwind's literal text-white for primary text; inside
+     the marketing shell we want it to follow the light/dark theme. */
+  .mk-marketing .text-white { color: var(--mk-text); }
+  .mk-marketing .bg-black { background-color: var(--mk-bg); }
+
+  .mk-marketing ::selection {
+    background: var(--mk-accent);
+    color: #ffffff;
+  }
+
+  /* Loading pulse for the brand wordmark */
+  @keyframes mkLogoPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+  .mk-marketing .logo-searching {
+    animation: mkLogoPulse 1.2s ease-in-out infinite;
+  }
+
+  /* Brand logo wordmark */
+  .mk-logo {
+    font-family: var(--font-geist-mono), monospace;
+    font-weight: 900;
+    letter-spacing: -0.04em;
+    color: var(--mk-text);
+  }
+  .mk-logo .mk-slash { color: var(--mk-accent); }
+
+  /* Section eyebrow — the small crimson label above section headings */
+  .mk-eyebrow {
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--mk-accent);
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+  }
+
+  /* Buttons */
+  .mk-btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3 font-semibold text-xs uppercase tracking-[0.15em] transition-colors;
+    background: var(--mk-accent);
+    color: #ffffff;
+    border: 1px solid var(--mk-accent);
+  }
+  .mk-btn-primary:hover { background: var(--mk-accent-hover); border-color: var(--mk-accent-hover); }
+
+  .mk-btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3 font-semibold text-xs uppercase tracking-[0.15em] transition-colors;
+    background: transparent;
+    color: var(--mk-text);
+    border: 1px solid var(--mk-border-2);
+  }
+  .mk-btn-secondary:hover { border-color: var(--mk-text-3); background: var(--mk-bg-1); }
+
+  .mk-btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 text-xs uppercase tracking-[0.15em] transition-colors;
+    color: var(--mk-text-2);
+  }
+  .mk-btn-ghost:hover { color: var(--mk-text); }
+
+  /* Panels / cards */
+  .mk-card {
+    background: var(--mk-bg-1);
+    border: 1px solid var(--mk-border);
+    transition: border-color 0.2s ease, background 0.2s ease;
+  }
+  .mk-card:hover { border-color: var(--mk-border-2); }
+  .mk-card-accent { border-left: 3px solid var(--mk-accent); }
+
+  /* Focus ring */
+  .mk-marketing a:focus-visible,
+  .mk-marketing button:focus-visible,
+  .mk-marketing input:focus-visible {
+    outline: 2px solid var(--mk-accent);
+    outline-offset: 2px;
+  }
+
+  /* Legal / long-form article styling. Applied to <article class="legal-prose">. */
+  .legal-prose {
+    color: var(--mk-text-2);
+    line-height: 1.7;
+    font-size: 15px;
+  }
+  .legal-prose h1 {
+    font-size: 2.75rem;
+    font-weight: 900;
+    letter-spacing: -0.03em;
+    color: var(--mk-text);
+    margin: 0 0 0.5rem;
+    line-height: 1.1;
+  }
+  .legal-prose h2 {
+    font-size: 1.375rem;
+    font-weight: 800;
+    letter-spacing: -0.015em;
+    color: var(--mk-text);
+    margin: 3.5rem 0 1rem;
+  }
+  .legal-prose h3 {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--mk-text);
+    margin: 2rem 0 0.75rem;
+  }
+  .legal-prose p { margin: 1rem 0; }
+  .legal-prose strong { color: var(--mk-text); font-weight: 600; }
+  .legal-prose em { font-style: italic; }
+  .legal-prose a { color: var(--mk-accent); text-decoration: none; }
+  .legal-prose a:hover { text-decoration: underline; text-underline-offset: 3px; }
+  .legal-prose ul, .legal-prose ol { margin: 1rem 0; padding-left: 1.5rem; }
+  .legal-prose ul { list-style: disc; }
+  .legal-prose ol { list-style: decimal; }
+  .legal-prose li { margin: 0.4rem 0; }
+  .legal-prose li::marker { color: var(--mk-text-4); }
+  .legal-prose code {
+    color: var(--mk-accent);
+    background: var(--mk-bg-1);
+    border: 1px solid var(--mk-border);
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 0.85em;
+    font-family: var(--font-geist-mono), monospace;
+  }
+  .legal-prose table {
+    width: 100%;
+    margin: 1.5rem 0;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+  }
+  .legal-prose th {
+    text-align: left;
+    font-weight: 700;
+    color: var(--mk-text);
+    border-bottom: 1px solid var(--mk-border-2);
+    padding: 0.75rem 1rem 0.75rem 0;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 0.75rem;
+  }
+  .legal-prose td {
+    border-bottom: 1px solid var(--mk-border);
+    padding: 0.75rem 1rem 0.75rem 0;
+    vertical-align: top;
+  }
+  .legal-prose hr { border-color: var(--mk-border); margin: 2.5rem 0; }
+
+  /* Lead paragraph directly after H1 */
+  .legal-prose > p:first-of-type,
+  .legal-prose .lead {
+    font-size: 1.125rem;
+    color: var(--mk-text-2);
+    line-height: 1.65;
+    margin: 1.5rem 0;
+  }
+
+  /* Meta row under the title */
+  .legal-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.25rem;
+    padding: 0.75rem 0;
+    border-top: 1px solid var(--mk-border);
+    border-bottom: 1px solid var(--mk-border);
+    margin: 1.5rem 0 2.5rem;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--mk-text-3);
+  }
+  .legal-meta strong { color: var(--mk-text); font-weight: 700; }
+
+  /* Commitment / at-a-glance callout */
+  .legal-callout {
+    padding: 1.5rem 1.75rem;
+    background: var(--mk-bg-1);
+    border: 1px solid var(--mk-border);
+    border-left: 3px solid var(--mk-accent);
+    margin: 2rem 0;
+  }
+  .legal-callout-title {
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: var(--mk-accent);
+    margin-bottom: 0.75rem;
+  }
+  .legal-callout p { margin: 0.5rem 0; color: var(--mk-text); font-weight: 500; }
+
+  /* TOC */
+  .legal-toc {
+    padding: 1.5rem 1.75rem;
+    background: var(--mk-bg-1);
+    border: 1px solid var(--mk-border);
+    margin: 2rem 0;
+  }
+  .legal-toc-title {
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: var(--mk-text-3);
+    margin-bottom: 1rem;
+  }
+  .legal-toc ol {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.4rem 1.5rem;
+    font-size: 0.875rem;
+  }
+  .legal-toc li { margin: 0; }
+  .legal-toc a {
+    color: var(--mk-text-2);
+    text-decoration: none;
+  }
+  .legal-toc a:hover { color: var(--mk-accent); }
+  .legal-toc a::before {
+    content: attr(data-n);
+    color: var(--mk-text-4);
+    font-family: var(--font-geist-mono), monospace;
+    font-size: 0.75rem;
+    margin-right: 0.75rem;
+    font-weight: 600;
+  }
+}

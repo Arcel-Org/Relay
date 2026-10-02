@@ -1,0 +1,183 @@
+# ─────────────────────────────────────────────────────────────────────────
+# Example nginx config for a multi-region Relay deployment.
+# There is no separate "Multi-Region Deployment" section in docs/DEPLOY.md
+# — read docker-compose.multi-region.yml's own header comment first for the
+# deployment model; this file only covers the reverse-proxy/TLS layer.
+#
+# Two sections below:
+#   A. Per-region nginx (recommended, default) — deploy this SAME pattern
+#      to every region's VPS, changing only the hostname/cert paths. Each
+#      region terminates its own TLS and proxies to its own local app+relay.
+#      This is docs/DEPLOY.md section 7's ("TLS / HTTPS Setup") existing
+#      single-instance nginx config, copied once per region — nothing new
+#      architecturally, just formalized as a template.
+#   B. Optional "front door" nginx — ONE nginx box routing by hostname to
+#      several regions' backends over the network, for operators who want a
+#      single entry point instead of TLS-per-VPS (e.g. one static IP in
+#      front of geographically distributed origins). Read the caveat before
+#      using this — it reintroduces a single point of failure that the
+#      per-region model (A) avoids.
+#
+# Neither section gets you automatic "route the user to their nearest
+# region" — that's a DNS-layer concern (geo-DNS / latency-based routing)
+# that depends entirely on your own DNS provider's feature set (e.g.
+# Cloudflare Load Balancing, Route 53 latency routing), not something this
+# repo can document generically. nginx here only handles what happens once
+# a request has already arrived at a given region's edge.
+# ─────────────────────────────────────────────────────────────────────────
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# A. Per-region nginx — deploy to EVERY region's VPS
+# ═══════════════════════════════════════════════════════════════════════
+#
+# Same shape as docs/DEPLOY.md section 7, one server block per region host.
+# Copy this block to each VPS, substituting REGION_HOSTNAME and the cert
+# paths for that region. If you're running docker-compose.multi-region.yml
+# with default ports (APP_PORT=3000, RELAY_PORT=8080 — the normal case,
+# since each region is a separate host), the proxy_pass targets below don't
+# need to change between regions.
+
+server {
+    listen 443 ssl;
+    server_name REGION_HOSTNAME;  # e.g. us-east.relay.example.com
+
+    ssl_certificate     /etc/ssl/certs/REGION_HOSTNAME.pem;
+    ssl_certificate_key /etc/ssl/private/REGION_HOSTNAME.key;
+
+    # Next.js frontend
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # WebSocket relay
+    #
+    # Note: with the default deployment model, the browser actually talks
+    # to the relay via server.js's built-in same-origin WS proxy on the
+    # app port (see lib/messaging/connection.ts) — it does NOT need a
+    # separate /ws location at all in the common case. This location block
+    # is kept for parity with docs/DEPLOY.md section 7 and for operators
+    # who terminate the relay on a distinct path/port deliberately (e.g.
+    # bypassing server.js's proxy for lower overhead).
+    location /ws {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_read_timeout 86400s;
+    }
+}
+
+server {
+    listen 80;
+    server_name REGION_HOSTNAME;
+    return 301 https://$host$request_uri;
+}
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# B. Optional: single front-door nginx routing to multiple regions
+# ═══════════════════════════════════════════════════════════════════════
+#
+# CAVEAT — read before using this instead of (A):
+#   This box becomes a new single point of failure and an extra network
+#   hop for every region behind it, which works against the "lower latency
+#   from different geographies" goal this whole exercise is for. Geo-DNS
+#   (a feature of your own DNS provider — e.g. Cloudflare Load Balancing,
+#   Route 53 latency routing — not something this repo documents
+#   generically) gets users straight to their region's own edge with no
+#   extra hop and no new SPOF, using DNS you likely already control, and
+#   is the recommended default. Reach for this section only
+#   if you have a specific reason to want one fixed entry IP (e.g. an
+#   anycast address, a compliance requirement, or you're not able to run
+#   TLS/DNS independently per region).
+#
+# Each server block below terminates TLS once at the front door and
+# proxies onward, in plaintext, to that region's origin over the public
+# network — put the origins behind a firewall that only accepts traffic
+# from this box's IP, and put this hop over a private network/VPN if the
+# regions and the front door aren't co-located, so region traffic isn't
+# plaintext HTTP across the open internet.
+
+upstream region_us_east {
+    server us-east-origin.internal:3000;
+}
+upstream region_us_east_ws {
+    server us-east-origin.internal:8080;
+}
+
+upstream region_eu_west {
+    server eu-west-origin.internal:3000;
+}
+upstream region_eu_west_ws {
+    server eu-west-origin.internal:8080;
+}
+
+# Repeat one upstream pair per region.
+
+server {
+    listen 443 ssl;
+    server_name us-east.relay.example.com;
+
+    ssl_certificate     /etc/ssl/certs/us-east.relay.example.com.pem;
+    ssl_certificate_key /etc/ssl/private/us-east.relay.example.com.key;
+
+    location / {
+        proxy_pass http://region_us_east;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /ws {
+        proxy_pass http://region_us_east_ws;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_read_timeout 86400s;
+    }
+}
+
+server {
+    listen 443 ssl;
+    server_name eu-west.relay.example.com;
+
+    ssl_certificate     /etc/ssl/certs/eu-west.relay.example.com.pem;
+    ssl_certificate_key /etc/ssl/private/eu-west.relay.example.com.key;
+
+    location / {
+        proxy_pass http://region_eu_west;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /ws {
+        proxy_pass http://region_eu_west_ws;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_read_timeout 86400s;
+    }
+}
+
+# Repeat one server block per region. Add the plaintext :80 → :443 redirect
+# blocks from section A for each hostname too.

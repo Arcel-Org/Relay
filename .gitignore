@@ -1,0 +1,39 @@
+.next/
+node_modules/
+*.pyc
+__pycache__/
+venv/
+.DS_Store
+.env
+.env.local
+.env.*.local
+.env.*
+!.env.example
+
+# scripts/update.sh dumps the app-data volume (session store, libSQL DB —
+# includes TOTP-encrypted secrets, session records) here before every update.
+# Must never be committed.
+backups/
+
+# libSQL/SQLite data files — generated locally, not committed (like any DB data dir)
+.data/*.db
+.data/*.db-*
+.data/*.json
+.data/*.json.*
+.data/*backup*
+
+# Build output
+dist-server/
+# Native desktop/mobile projects (removed — Relay is web-only). If they're
+# ever re-added, never track their build artifacts.
+# android/
+# src-tauri/
+# capacitor-dist/
+*.tsbuildinfo
+
+# playwright
+/test-results/
+/playwright-report/
+/playwright/.cache/
+/e2e-certs/
+/.e2e-data/

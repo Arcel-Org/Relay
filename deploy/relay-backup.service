@@ -1,0 +1,19 @@
+# Systemd service for a one-shot backup run — triggered by relay-backup.timer,
+# not enabled/started directly. See docs/DEPLOY.md's Backups section.
+#
+# Install:
+#   sudo cp deploy/relay-backup.service deploy/relay-backup.timer /etc/systemd/system/
+#   sudo systemctl edit relay-backup.service   # set WorkingDirectory (see below)
+#   sudo systemctl enable --now relay-backup.timer
+
+[Unit]
+Description=Relay app-data backup
+Wants=network-online.target
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+# Override via `systemctl edit relay-backup.service` — must point at the
+# repo root (the directory containing docker-compose.yml and scripts/).
+WorkingDirectory=/opt/relay
+ExecStart=/opt/relay/scripts/backup.sh

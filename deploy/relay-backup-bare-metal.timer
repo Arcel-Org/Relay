@@ -1,0 +1,16 @@
+# Runs relay-backup-bare-metal.service daily at 03:00 (local time), plus a
+# randomized delay up to 10 minutes to avoid every backup on a host
+# colliding with other cron/systemd-timer jobs at exactly the same second.
+# Persistent=true means a missed run (host was off at 03:00) fires once at
+# the next boot instead of silently skipping that day entirely.
+
+[Unit]
+Description=Daily Relay bare-metal data directory backup
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+RandomizedDelaySec=600
+Persistent=true
+
+[Install]
+WantedBy=timers.target
