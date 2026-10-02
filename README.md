@@ -151,15 +151,15 @@ The full backup → restore cycle is described in [`docs/DEPLOY.md`](docs/DEPLOY
 │  • encrypt/decrypt       │                │  ┌────────────┐   ┌─────────┐  │
 │  • local encrypted store │  WSS (relay)   │  │  app :3000 │   │ relay   │  │
 │    (IndexedDB, HKDF)     │  ────────────▶ │  │  Next.js   │   │ :8080   │  │
-└──────────────────────────┘                │  │  server    │   │ WebSocket│  │
+└──────────────────────────┘                │  │  server    │   │WebSocket│  │
                                             │  └─────┬──────┘   └────┬────┘  │
                                             │        └──────┬─────────┘      │
-                                            │               ▼               │
-                                            │        ┌──────────────┐       │
-                                            │        │ SQLite       │       │
-                                            │        │ (sessions,   │       │
-                                            │        │  keys, dirs) │       │
-                                            │        └──────────────┘       │
+                                            │               ▼                │
+                                            │        ┌──────────────┐        │
+                                            │        │ SQLite       │        │
+                                            │        │ (sessions,   │        │
+                                            │        │  keys, dirs) │        │
+                                            │        └──────────────┘        │
                                             └────────────────────────────────┘
 ```
 
