@@ -9,7 +9,9 @@ treat reports seriously and respond accordingly.
 report privately to the maintainers at:
 
 - **Email:** `security@arcel.org`
-- **PGP:** (to be published — see below)
+  (No PGP key is currently published; plaintext email or a GitHub draft advisory
+  is the reporting path for now. If/when a key is published it will be linked
+  here from `keys/`.)
 
 If you prefer, you may also open a *draft* security advisory on the repository
 (GitHub: Security → Advisories → New draft advisory), which is only visible to

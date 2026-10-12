@@ -88,7 +88,7 @@ export default async function CanaryPage() {
 
       <h2>How this page stays current</h2>
       <p>
-        Until August 2026, updates to this page were made by hand, and each change was committed to our public source repository with a PGP signature from the canary maintainer&apos;s published key — that history remains inspectable via <code>git log --show-signature app/legal/canary/page.tsx</code> for everything up to that point.
+        Until August 2026, updates to this page were made by hand and committed to the project&apos;s source history. The public release of Arcel is published as a squashed snapshot, so that earlier per-commit signature history is not reproduced in this repository — the confirmed statements above, stamped with the current date and time, are the operative record.
       </p>
       <p>
         Since then, confirmations are recorded through Arcel&apos;s internal admin system: an authorized administrator reviews the six statements above and, if they are still true, confirms — which stamps the exact date and time shown above at the moment of confirmation. This is faster and harder to forget than a manual monthly commit, but we&apos;ll state plainly what it is <em>not</em>: it is not currently accompanied by a per-confirmation cryptographic signature. The guarantee now rests on our administrative access controls rather than a personal key held by one maintainer. If that changes, this section will say so.
