@@ -194,6 +194,10 @@ rollback() {
 
 if [ "$MODE" = "rollback" ]; then
   rollback
+  # rollback() always exits (1) on every path, so this line is unreachable
+  # today — intentionally kept so a future refactor that lets rollback return
+  # can never fall through to the git-pull / backup steps below. (SC2317)
+  # shellcheck disable=SC2317
   exit 0
 fi
 
