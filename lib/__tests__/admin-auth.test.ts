@@ -30,7 +30,13 @@ afterEach(async () => {
   delete process.env.DATA_DIR;
   delete process.env.SESSION_STORE_DIR;
   delete process.env.ADMIN_RELAY_IDS;
-  await fs.rm(tmpDir, { recursive: true, force: true });
+  // A leaked async DB/journal flush can drop a file into tmpDir right as we
+  // remove it, racing rmdir -> ENOTEMPTY under parallel CI load. Retry the
+  // rm a few times with a short backoff before giving up.
+  for (let i = 0; i < 6; i++) {
+    try { await fs.rm(tmpDir, { recursive: true, force: true }); break; }
+    catch (err) { if (i === 5) throw err; await new Promise((r) => setTimeout(r, 100)); }
+  }
 });
 
 async function makeSessionRequest(relayId: string): Promise<NextRequest> {
