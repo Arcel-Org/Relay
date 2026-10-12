@@ -59,6 +59,15 @@ const INFO_TOTP = new TextEncoder().encode('totp');
 const SALT_STORAGE = new TextEncoder().encode('storage-v1');
 const SALT_RECOVERY = new TextEncoder().encode('recovery-v1');
 const SALT_DURESS = new TextEncoder().encode('duress-v1');
+
+// PBKDF2-HMAC-SHA256 iteration count for PIN-derived keys (storage + duress).
+// OWASP Password Storage Cheat Sheet (2024) recommends >=600,000 for SHA-256.
+// This is a KDF parameter baked into every derived key: changing it is a
+// BREAKING change for identities derived with the old count (their PIN will
+// no longer unlock them). Safe to change only while pre-release / before real
+// users exist. Stored here as a single constant; 200k was the original bar,
+// raised to 600k to match current OWASP guidance.
+const PBKDF2_ITERATIONS = 600_000;
 const TOTP_PERIOD = 30;
 const TOTP_DIGITS = 6;
 const TOTP_LENGTH = 20;
@@ -193,7 +202,7 @@ export function verifyTOTPCode(totp: TOTP, enteredCode: string): boolean {
 /**
  * Derive storage encryption key from PIN and device fingerprint.
  *
- * Uses PBKDF2-SHA256 with 200,000 iterations to make offline brute-force of
+ * Uses PBKDF2-SHA256 with 600,000 iterations to make offline brute-force of
  * the 6-digit PIN infeasible even when an attacker has both the
  * encryptedPrivateKey and the deviceFingerprint from IndexedDB.
  * At ~100ms per guess, exhausting 10^6 PINs takes ~28 hours per attacker core.
@@ -206,7 +215,7 @@ export async function deriveStorageKey(pin: string, deviceFingerprint: string): 
   // derived key is device-bound and domain-separated from other uses.
   const enc = new TextEncoder();
   const saltBase = new Uint8Array([...enc.encode(deviceFingerprint), ...SALT_STORAGE]);
-  return pbkdf2Async(sha256, pinBytes, saltBase, { c: 200_000, dkLen: 32 });
+  return pbkdf2Async(sha256, pinBytes, saltBase, { c: PBKDF2_ITERATIONS, dkLen: 32 });
 }
 
 /**
@@ -215,7 +224,7 @@ export async function deriveStorageKey(pin: string, deviceFingerprint: string): 
  * the same "incorrect PIN" result as a genuine wrong guess, so someone
  * coercing the user to unlock has no way to tell a duress-wipe happened.
  *
- * Same PBKDF2-SHA256/200k construction as the real storage key, but domain
+ * Same PBKDF2-SHA256/600k construction as the real storage key, but domain
  * separated (SALT_DURESS) so the duress hash can't be derived from or
  * confused with the real PIN's storage key.
  */
@@ -223,7 +232,7 @@ export async function hashDuressPin(pin: string, deviceFingerprint: string): Pro
   const pinBytes = new TextEncoder().encode(pin);
   const enc = new TextEncoder();
   const saltBase = new Uint8Array([...enc.encode(deviceFingerprint), ...SALT_DURESS]);
-  const hash = await pbkdf2Async(sha256, pinBytes, saltBase, { c: 200_000, dkLen: 32 });
+  const hash = await pbkdf2Async(sha256, pinBytes, saltBase, { c: PBKDF2_ITERATIONS, dkLen: 32 });
   return bytesToHex(hash);
 }
 

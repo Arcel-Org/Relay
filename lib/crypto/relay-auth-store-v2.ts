@@ -342,19 +342,12 @@ export const useRelayAuthStoreV2 = create<AuthState>((set, get) => ({
       // Create TOTP instance from the already-derived secret
       // (NOT from private key - that would derive it again!)
       const totp = createTOTPFromSecret(signupTOTPSecret);
-      
-      // Get current code for debugging
-      const currentCode = totp.generate();
-      log.debug('TOTP Verification Debug:');
-      log.debug('  Entered Code:', totpVerificationCode);
-      log.debug('  Current Code:', currentCode);
-      
-      // Verify code with time window (accepts current and previous 30-sec window)
+      // Verify code with time window (accepts current and previous 30-sec window).
+      // Note: never log the entered or generated TOTP code — a leaked 6-digit
+      // code (even at debug level) defeats the second factor.
       const isValid = verifyTOTPCode(totp, totpVerificationCode);
-      log.debug('  Verification Result:', isValid);
 
       if (!isValid) {
-        log.debug('  Code mismatch - verification failed');
         return false;
       }
 

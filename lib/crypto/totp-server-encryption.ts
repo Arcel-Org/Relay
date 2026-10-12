@@ -32,6 +32,16 @@ function getKey(): Buffer {
       );
     }
     // Deterministic dev-only key so local dev works without config.
+    if (process.env.NODE_ENV === undefined) {
+      // Never silent: an operator who forgot BOTH NODE_ENV and the key in a
+      // real deployment would otherwise quietly ship TOTP-at-rest encryption
+      // that a known, published key can decrypt.
+      console.warn(
+        '[totp-server-encryption] WARNING: TOTP_ENCRYPTION_KEY not set and NODE_ENV is unset — ' +
+        'using a DETERMINISTIC (insecure) all-zero key. Set a real TOTP_ENCRYPTION_KEY and ' +
+        'NODE_ENV=production for any non-development deployment.'
+      );
+    }
     return Buffer.from('0'.repeat(64), 'hex');
   }
   return Buffer.from(hex, 'hex');

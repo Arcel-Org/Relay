@@ -45,6 +45,12 @@ const SESSION_SECRET = (() => {
     if (!isDevLikeEnv()) {
       throw new Error('SESSION_SECRET is required (>=32 chars) — only development/test may use the insecure dev fallback');
     }
+    if (process.env.NODE_ENV === undefined) {
+      console.warn(
+        '[relay-node] WARNING: SESSION_SECRET not set and NODE_ENV is unset — using a DETERMINISTIC (insecure) ' +
+        'dev secret. Set a real SESSION_SECRET and NODE_ENV=production for any non-development deployment.'
+      );
+    }
     return 'dev-only-session-secret-change-me-in-production!!';
   }
   return s;

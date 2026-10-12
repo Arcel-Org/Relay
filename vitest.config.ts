@@ -4,6 +4,11 @@ import path from 'path';
 export default defineConfig({
   test: {
     environment: 'jsdom',
+    // PIN hardening uses PBKDF2-SHA256 at 600k iterations (~2-4s per call);
+    // the identity/duress tests derive several keys per case and comfortably
+    // exceed vitest's 5s default. Raised so the more-secure KDF stays green
+    // (and stays green on slower CI runners).
+    testTimeout: 30000,
     include: ['lib/__tests__/**/*.test.ts'],
     exclude: ['lib/features/features.test.ts'],
     // Node 22.4+ ships an experimental global `localStorage` that shadows
