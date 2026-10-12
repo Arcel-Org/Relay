@@ -96,7 +96,21 @@ export function useConnection({
     const identity = await loadIdentity();
     if (!identity) return;
 
-    const envUrl = process.env.NEXT_PUBLIC_RELAY_URL || 'ws://localhost:3000';
+    const bakedEnvUrl = process.env.NEXT_PUBLIC_RELAY_URL || 'ws://localhost:3000';
+    // In the browser, prefer the relay URL injected at REQUEST time by the
+    // server (app/layout.tsx sets <html data-relay-url="..."> from the
+    // runtime env, since the root layout is a Server Component). This lets a
+    // single prebuilt image be deployed to any host whose runtime env sets
+    // NEXT_PUBLIC_RELAY_URL — changing the public URL no longer requires a
+    // rebuild, and prebuilt (clone-free) images work unchanged. For
+    // self-built dev images the baked value is used as the fallback.
+    const envUrl =
+      typeof document !== 'undefined' &&
+      document.documentElement &&
+      document.documentElement.dataset &&
+      document.documentElement.dataset.relayUrl
+        ? document.documentElement.dataset.relayUrl
+        : bakedEnvUrl;
     const relayUrl = (() => {
       // When running in the browser, always connect WebSocket back to the SAME
       // origin as the page (same host, same port, matching protocol).

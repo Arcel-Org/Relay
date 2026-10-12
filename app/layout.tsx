@@ -31,7 +31,7 @@ export default async function RootLayout({
   const nonce = (await headers()).get('x-nonce') ?? '';
 
   return (
-    <html lang="en" suppressHydrationWarning data-theme="crimson">
+    <html lang="en" suppressHydrationWarning data-theme="crimson" data-relay-url={process.env.NEXT_PUBLIC_RELAY_URL || ''}>
       <head>
         {/* One-time migration: copy legacy `polar:*` localStorage keys to
             the new `relay:*` namespace. Runs before any app code reads them. */}
