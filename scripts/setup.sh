@@ -179,6 +179,14 @@ echo ">> Wrote $ENV_FILE"
 # ── Boot ────────────────────────────────────────────────────────────────────
 if [ "$AUTO_UP" = "1" ]; then
   echo ">> Building and starting the stack (docker compose up -d --build)..."
+  # The stack joins the shared `proxy-net` network (declared external in
+  # docker-compose.yml so a separately-run containerized reverse proxy can
+  # reach `app`/`relay` by name). Docker refuses to `up` a stack that joins
+  # a missing external network, so create it if absent — keeps this a
+  # genuine one-command setup on a fresh host whether or not a proxy is used.
+  if ! docker network inspect proxy-net >/dev/null 2>&1; then
+    docker network create proxy-net >/dev/null 2>&1 && echo ">> created shared network 'proxy-net'"
+  fi
   docker compose up -d --build
   echo ">> Done. Check status with:  docker compose ps"
 fi
