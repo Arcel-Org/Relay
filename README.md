@@ -69,28 +69,37 @@ allows:
 - **Zero data retention** — minimal metadata, no message logging, no social
   graph
 
-## Quickstart (Docker only — one command)
+## Quickstart (Docker only — one command, no clone)
 
-You need **only Docker** (with the Compose v2 plugin) and `openssl` — no
-Node.js, no npm, nothing else. Everything runs as a single Compose pod
-(**app** `:3000` + **relay** `:8080`) built from one command:
+You need **only Docker** (with the Compose v2 plugin), `curl` and `openssl`.
+No Node.js, no npm, no git clone of the repo, no compilation — the app and
+relay run from a **prebuilt image**, so there's nothing to build (*one* image
+serves both the web app on `:3000` and the relay on `:8080*).
 
 ```bash
-git clone --depth 1 https://github.com/Arcel-Org/Relay.git && cd Relay && ./scripts/setup.sh --up
+curl -fsSL -o quickstart.sh https://raw.githubusercontent.com/Arcel-Org/Relay/master/scripts/quickstart.sh
+bash quickstart.sh            # prompts for your public URL
+# or, fully automated:
+bash quickstart.sh --url https://relay.example.com --yes
 ```
 
-`setup.sh` checks for Docker + openssl, generates `SESSION_SECRET` and
-`TOTP_ENCRYPTION_KEY` with `openssl rand -hex 32`, and asks for your public
-URL. From that one URL it derives everything the stack needs:
-`NEXT_PUBLIC_RELAY_URL` (`wss://`), `WS_ALLOWED_ORIGINS`, and the
-`WEBAUTHN_RP_ID` / `WEBAUTHN_ORIGIN` passkey values. It writes `.env`
-**without ever overwriting an existing secret** — re-running is safe — then
-builds and starts the pod.
+`quickstart.sh` fetches **only** the two Compose files and the env template
+(never the repo), generates `SESSION_SECRET` and `TOTP_ENCRYPTION_KEY` with
+`openssl rand -hex 32`, and asks for your public URL. From that one URL it
+derives everything the stack needs: `NEXT_PUBLIC_RELAY_URL` (`wss://`),
+`WS_ALLOWED_ORIGINS`, and the `WEBAUTHN_RP_ID` / `WEBAUTHN_ORIGIN` passkey
+values. It writes `./relay/.env` **without ever overwriting an existing
+secret** — re-running is safe — then pulls the image and starts the pod.
+
+The relay URL is resolved at *runtime* (`RELAY_WS_URL`), so changing your
+public URL is a restart — never a rebuild. Self-hosting from source is still
+supported (`git clone` + `./scripts/setup.sh --up`), but the image-based
+path above is the recommended, turnkey route.
 
 Verify it's live:
 
 ```bash
-docker compose ps          # both should show "healthy"
+(cd relay && docker compose -f docker-compose.yml -f docker-compose.release.yml ps)  # both 'healthy'
 curl http://127.0.0.1:3000/api/status
 # {"ok":true,"relayReachable":true,"dbReachable":true,...}
 ```
@@ -98,9 +107,10 @@ curl http://127.0.0.1:3000/api/status
 Then put a TLS-terminating reverse proxy (nginx, Caddy, or Cloudflare) in
 front — the app and relay bind to loopback only, and the `wss://` relay URL
 needs real HTTPS to work in a browser. If you're behind a proxy, set
-`TRUST_PROXY_HEADERS=true` in `.env` and rebuild. The full production guide
-(TLS, backups, updates, TURN for calls, multi-region) is in
-[`docs/DEPLOY.md`](docs/DEPLOY.md).
+`TRUST_PROXY_HEADERS=true` in `./relay/.env` and restart. The full production
+guide (TLS, backups, updates, TURN for calls, multi-region) is in
+[`docs/DEPLOY.md`](docs/DEPLOY.md), and `quickstart.sh --help` lists its
+automation flags.
 
 ### Daily operations (backup / update / restore)
 
