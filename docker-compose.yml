@@ -70,6 +70,11 @@ services:
           memory: 2G
     environment:
       - NODE_ENV=production
+      # NEXT_PUBLIC_* is inlined into the bundle (and even Server Components)
+      # at build time, so it is NOT readable at runtime — for prebuilt images
+      # we relay the same value through a non-published runtime var the layout
+      # and middleware can read to resolve the real public wss:// origin.
+      - RELAY_WS_URL=${NEXT_PUBLIC_RELAY_URL}
       - NEXT_PUBLIC_RELAY_URL=${NEXT_PUBLIC_RELAY_URL}
       # Pin the app's internal listen port to match the published mapping
       # (127.0.0.1:3000:3000) and the healthcheck's localhost:3000 probe.

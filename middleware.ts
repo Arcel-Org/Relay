@@ -139,9 +139,11 @@ export function middleware(request: NextRequest) {
     "img-src 'self' data: blob:",
     "font-src 'self' data:",
     // Restrict outbound connections to self + relay server only.
-    // NEXT_PUBLIC_RELAY_URL should be set in production (e.g. wss://relay.arcel.org).
-    // Fall back to allowing all WS origins only in dev — never ship without the env var.
-    `connect-src 'self' ${process.env.NEXT_PUBLIC_RELAY_URL ?? (isDev ? 'ws: wss:' : '')}`.trimEnd(),
+    // RELAY_WS_URL is the runtime (non-NEXT_PUBLIC) value so a prebuilt image
+    // resolves the correct public wss:// origin at request time; falls back to
+    // the baked NEXT_PUBLIC_RELAY_URL for self-built dev images. Never ship
+    // without it — fall back to allowing all WS origins only in dev.
+    `connect-src 'self' ${process.env.RELAY_WS_URL ?? process.env.NEXT_PUBLIC_RELAY_URL ?? (isDev ? 'ws: wss:' : '')}`.trimEnd(),
     "media-src 'self' blob:",
     "worker-src 'self' blob:",
     "frame-ancestors 'none'",
