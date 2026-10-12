@@ -60,7 +60,13 @@ jobs:
           # bumping the version.
           echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  gitleaks.tar.gz" | sha256sum -c -
           tar -xzf gitleaks.tar.gz gitleaks
-          ./gitleaks detect --source . --redact --exit-code 1 --baseline-path .gitleaks-baseline.json
+          # --no-git: scan the checked-out working tree only. Without it,
+          # gitleaks scans git history and fingerprints each finding with its
+          # COMMIT SHA, so a baseline generated elsewhere (different commit /
+          # deeper history) never matches CI's shallow 1-commit checkout and
+          # every push flags the same benign findings as 'new'. --no-git
+          # fingerprints are stable across commits (path:rule:line).
+          ./gitleaks detect --source . --no-git --redact --exit-code 1 --baseline-path .gitleaks-baseline.json
 
       # `next lint` was removed in Next.js 16; `npm run lint` now runs
       # `eslint .` directly via a flat eslint.config.mjs. ~80 pre-existing
