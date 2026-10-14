@@ -1,122 +1,65 @@
+# Relay — self-hosted post-quantum encrypted messaging.
+#
+#   docker compose up -d                          # app (:3000) + relay (:8080)
+#   docker compose --profile turn up -d           # + coturn (call media relay)
+#
+# Secrets come from .env — generate it with scripts/quickstart.sh (image
+# path) or scripts/setup.sh (source path); both are idempotent.
+#
+# Key facts:
+#   • Both ports bind to loopback only. Put a TLS-terminating reverse proxy
+#     in front (nginx / Caddy / Cloudflare). If the proxy is itself a
+#     container, create the shared network once — `docker network create
+#     proxy-net` — join it, and point at `app:3000` / `relay:8080` by name.
+#   • NEXT_PUBLIC_RELAY_URL is baked into the client bundle at build time, so
+#     set it to the PUBLIC wss:// URL browsers can reach (never the internal
+#     `relay:8080` name). The runtime RELAY_WS_URL override lets a prebuilt
+#     image resolve the URL without a rebuild.
+#   • app and relay share one image; `command` swaps in the relay entrypoint.
+#
+# Full guide: docs/DEPLOY.md.
+
 services:
-  # ── Next.js frontend ────────────────────────────────────────────────
   app:
     build:
       context: .
-      # NEXT_PUBLIC_RELAY_URL must be the PUBLIC wss:// URL real browsers can
-      # reach (through NPM/Cloudflare — see docs/DEPLOY.md §13), never the
-      # internal-only `relay:8080` service DNS name — a real browser can't
-      # resolve or reach that at all. Baked into the client bundle at build
-      # time (see Dockerfile's matching comment), so this must be set in
-      # .env and the image rebuilt whenever it changes; the `environment:`
-      # entry below sets the SAME value at container runtime only for
-      # middleware.ts's CSP connect-src header, not for the client bundle.
       args:
-        # Fail fast, not silently: NEXT_PUBLIC_RELAY_URL is inlined into the
-        # client bundle at build time, so an empty value can't be caught at
-        # runtime — the app would build fine and then fail to connect for
-        # every user. `:?` turns an unset/empty value into a hard compose
-        # error with a clear message instead of a broken deployment.
-        NEXT_PUBLIC_RELAY_URL: ${NEXT_PUBLIC_RELAY_URL:?Set NEXT_PUBLIC_RELAY_URL in .env (see docs/DEPLOY.md §2) — it is baked into the client bundle at build time}
+        NEXT_PUBLIC_RELAY_URL: ${NEXT_PUBLIC_RELAY_URL:?Set NEXT_PUBLIC_RELAY_URL in .env (see docs/DEPLOY.md §2)}
     restart: unless-stopped
-    # The default json-file driver has no size cap at all unless told —
-    # an unbounded log file can fill the host disk on a long-running
-    # deployment. Rotated at 10MB x 3 files (30MB cap) per service.
-    logging:
+    logging: &logging
       driver: json-file
       options:
         max-size: "10m"
         max-file: "3"
-    # Bound to loopback only — for a reverse proxy running directly on this
-    # same host (not containerized). Publishing on 0.0.0.0 here would let
-    # anyone reach the app directly, bypassing your proxy/Cloudflare and the
-    # trusted-proxy-header assumptions in lib/rate-limit.ts
-    # (TRUST_PROXY_HEADERS). If you're deploying without a local reverse
-    # proxy (e.g. a cloud LB terminating TLS elsewhere), override this in a
-    # docker-compose.override.yml instead of loosening it here.
-    #
-    # If your reverse proxy (e.g. Nginx Proxy Manager) runs as its OWN
-    # container instead, these loopback-bound ports are unreachable from
-    # it — a container's 127.0.0.1 is its own, not the host's. That's what
-    # the `proxy-net` network below is for: it lets a proxy container on
-    # the same external network reach this service by name (`app`, port
-    # 3000) instead. See docs/DEPLOY.md §13 for the one-time
-    # `docker network create proxy-net` setup step this requires.
     ports:
       - "127.0.0.1:3000:3000"
-    networks:
-      - default
-      - proxy-net
-    # See the matching comment on the relay service below — the same
-    # default-nofile-limit ceiling applies here under concurrent HTTP load.
-    ulimits:
+    networks: [default, proxy-net]
+    ulimits: &ulimits
       nofile:
         soft: 65536
         hard: 65536
-    # Hardening: a future RCE (dependency vuln, deserialization bug) gets a
-    # container that can't setuid to a more privileged user, holds none of
-    # the Linux capabilities a plain Node HTTP server never needs (raw
-    # sockets, ptrace, binding <1024 — both published ports are >1024), and
-    # is bounded so a runaway process can't starve the rest of the host.
-    # Tune the limits below to your actual hardware/traffic.
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
     deploy:
       resources:
         limits:
           cpus: "2"
           memory: 2G
     environment:
-      - NODE_ENV=production
-      # NEXT_PUBLIC_* is inlined into the bundle (and even Server Components)
-      # at build time, so it is NOT readable at runtime — for prebuilt images
-      # we relay the same value through a non-published runtime var the layout
-      # and middleware can read to resolve the real public wss:// origin.
-      - RELAY_WS_URL=${NEXT_PUBLIC_RELAY_URL}
-      - NEXT_PUBLIC_RELAY_URL=${NEXT_PUBLIC_RELAY_URL}
-      # Pin the app's internal listen port to match the published mapping
-      # (127.0.0.1:3000:3000) and the healthcheck's localhost:3000 probe.
-      # Without this the app inherits whatever PORT .env sets (e.g. 5555 from
-      # a local dev setup), silently listening on a port nothing publishes
-      # and the healthcheck never hits.
-      - PORT=3000
-      # The relay runs in a SEPARATE container here, so the app's /api/status
-      # healthcheck probe (which defaults to localhost for the single-process
-      # dev/PM2 deployment) must be pointed at the relay service's network
-      # name. Without this, the app's healthcheck would probe its own
-      # loopback, never see the relay, and report unhealthy forever.
-      - RELAY_HOST=relay
-      # Pin the same relay port the relay service actually listens on. The
-      # relay service sets RELAY_PORT=8080, but the app inherits whatever
-      # .env says (a leftover custom port like 9091 from a local dev setup
-      # would make the healthcheck probe a port nothing listens on and the
-      # app would report unhealthy forever). Both services must agree; the
-      # published host port mapping above is also :8080.
-      - RELAY_PORT=8080
-    env_file:
-      - .env
+      NODE_ENV: production
+      RELAY_WS_URL: ${NEXT_PUBLIC_RELAY_URL}   # runtime URL for prebuilt images
+      NEXT_PUBLIC_RELAY_URL: ${NEXT_PUBLIC_RELAY_URL}
+      # Pinned so a stray dev .env can't change the listen port or which
+      # relay the healthcheck probes.
+      PORT: "3000"
+      RELAY_HOST: relay
+      RELAY_PORT: "8080"
+    env_file: .env
     volumes:
       - app-data:/app/.data
     depends_on:
       relay:
         condition: service_healthy
-    # /api/status (not /api/health) — /api/health is deliberately DB-free
-    # (just "is the Next.js process itself up"), which previously meant
-    # Dokploy's health-check-triggered rollback could never detect a broken
-    # DB layer: a fully-down DB (disk full, WAL corruption, lock wedged)
-    # left every DB-backed route failing while the container still reported
-    # healthy. /api/status already checks both DB and relay reachability,
-    # but always returns HTTP 200 with `ok` in the JSON body rather than a
-    # non-2xx status — grep for `"ok":true` rather than relying on the
-    # bare HTTP status wget would otherwise treat as success either way.
-    #
-    # 127.0.0.1, deliberately not `localhost`: inside the container
-    # `localhost` resolves to BOTH 127.0.0.1 and ::1, and wget prefers the
-    # IPv6 ::1 — but the standalone Next server binds IPv4 0.0.0.0 only, so
-    # the probe would hit ::1:3000 (nothing listening) and the container
-    # would sit unhealthy forever while the app was perfectly fine.
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/status | grep -q '\"ok\":true' || exit 1"]
       interval: 30s
@@ -124,69 +67,28 @@ services:
       retries: 3
       start_period: 15s
 
-  # ── WebSocket relay server ──────────────────────────────────────────
   relay:
-    # Same build context/args as `app` — both services build from the same
-    # Dockerfile with no target override, so they resolve to the identical
-    # final image (see Dockerfile's stage comments; relay's `command:` below
-    # just overrides the entrypoint). Keeping the args identical here avoids
-    # Compose treating this as a different build and compiling the image
-    # twice — the NEXT_PUBLIC_RELAY_URL bake-in is unused by the relay
-    # process itself but harmless to share.
     build:
       context: .
       args:
-        NEXT_PUBLIC_RELAY_URL: ${NEXT_PUBLIC_RELAY_URL:?Set NEXT_PUBLIC_RELAY_URL in .env (see docs/DEPLOY.md §2) — it is baked into the client bundle at build time}
+        NEXT_PUBLIC_RELAY_URL: ${NEXT_PUBLIC_RELAY_URL:?Set NEXT_PUBLIC_RELAY_URL in .env (see docs/DEPLOY.md §2)}
     restart: unless-stopped
-    # See the matching comment on the app service above.
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
+    logging: *logging
     ports:
       - "127.0.0.1:8080:8080"
-    # See the matching comment on the app service above — same reasoning,
-    # same `proxy-net` network for a containerized reverse proxy to reach
-    # this service by name (`relay`, port 8080) for the WS upgrade path.
-    networks:
-      - default
-      - proxy-net
-    # Each open WebSocket connection holds at least one file descriptor.
-    # docs/DEPLOY.md advertises MAX_WS_CONNECTIONS=10000, but Docker's
-    # default nofile limit (often inherited from the host, commonly 1024
-    # soft) is reached long before that ceiling — new connections then fail
-    # with a silent EMFILE instead of the intended, visible "Server at
-    # capacity" rejection. Raised well above MAX_WS_CONNECTIONS to leave
-    # headroom for the relay's own SQLite/log file descriptors alongside it.
-    ulimits:
-      nofile:
-        soft: 65536
-        hard: 65536
-    # Hardening — see the matching comment on the app service above. The
-    # relay holds open WebSocket connections rather than serving HTTP
-    # requests, but the same reasoning applies identically.
-    security_opt:
-      - no-new-privileges:true
-    cap_drop:
-      - ALL
+    networks: [default, proxy-net]
+    ulimits: *ulimits
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
     deploy:
       resources:
         limits:
           cpus: "2"
           memory: 2G
     environment:
-      - NODE_ENV=production
-      # relay-node.ts reads RELAY_PORT first (falling back to PORT, then
-      # 8080) specifically so this doesn't need to fight the base image's
-      # global `ENV PORT=3000` (set for the app service, inherited here
-      # since both services build from the same image) — without a port
-      # var taking priority over that, the relay would silently bind to
-      # 3000 instead of 8080, breaking both the healthcheck
-      # (`nc -z localhost 8080`) and the published port mapping.
-      - RELAY_PORT=8080
-    env_file:
-      - .env
+      NODE_ENV: production
+      RELAY_PORT: "8080"
+    env_file: .env
     volumes:
       - app-data:/app/.data
     command: ["node", "dist-server/server/relay-node.js"]
@@ -197,54 +99,22 @@ services:
       retries: 3
       start_period: 10s
 
-  # ── TURN server for call media relay (optional but recommended) ─────
-  # Mints of short-lived per-call credentials happen in
-  # app/api/turn-credentials/route.ts using TURN_SECRET below — coturn
-  # verifies them itself via --use-auth-secret, no shared DB needed.
-  # If TURN_SECRET is unset, calls fall back to STUN/P2P (IPs not hidden).
-  # Not started by default `docker-compose up` — requires TURN_SECRET, which
-  # most self-hosters won't have set yet. Enable with:
-  #   docker-compose --profile turn up -d
   coturn:
-    # Pinned by digest, not :latest — an unpinned tag means a `docker compose
-    # pull` silently ships whatever coturn upstream published most recently,
-    # including a live CRITICAL CVE, straight into a self-hosted deploy with
-    # no review. Re-pin deliberately (check
-    # https://hub.docker.com/r/coturn/coturn/tags for the current digest)
-    # when actually upgrading.
-    image: coturn/coturn@sha256:0feee4fc1f45c7c053c8fee3e1ab941b1a1b9a0429bc01e18126735410770bfd # latest as of 2026-07-24
+    # Optional TURN server for call media relay. Needs TURN_SECRET in .env:
+    #   docker compose --profile turn up -d
+    image: coturn/coturn@sha256:0feee4fc1f45c7c053c8fee3e1ab941b1a1b9a0429bc01e18126735410770bfd
     profiles: ["turn"]
     restart: unless-stopped
-    # See the matching comment on the app service above.
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
+    logging: *logging
     network_mode: host
-    # Deliberately NOT `${TURN_SECRET:?...}` here — Compose interpolates
-    # every service's environment at parse time regardless of which
-    # profiles are active, so a hard-require in this YAML made even a
-    # profile-less `docker compose up -d` (the default, most common case)
-    # fail immediately with "required variable TURN_SECRET is missing a
-    # value" before app/relay ever started — verified empirically. The
-    # entrypoint below only actually RUNS when the turn profile is
-    # explicitly enabled, so that's where the requirement is enforced.
     environment:
-      - TURN_SECRET=${TURN_SECRET:-}
-    # Write the secret to a config file (mode 600) instead of passing it as
-    # a CLI argument — argv is visible to any process sharing this
-    # container's PID namespace via /proc/<pid>/cmdline (and to `docker
-    # inspect`), which is a broader exposure surface than an env var alone.
-    # This treats TURN_SECRET with the same care as SESSION_SECRET /
-    # TOTP_ENCRYPTION_KEY, which docs/DEPLOY.md already calls out as
-    # needing to stay isolated.
+      TURN_SECRET: ${TURN_SECRET:-}
     entrypoint: ["sh", "-c"]
     command:
       - |
         set -e
         if [ -z "$$TURN_SECRET" ]; then
-          echo "TURN_SECRET is not set — set it in .env before enabling the turn profile (see docs/DEPLOY.md)." >&2
+          echo "TURN_SECRET not set — add it to .env before enabling the turn profile (see docs/DEPLOY.md)." >&2
           exit 1
         fi
         conf=$$(mktemp)
@@ -264,16 +134,6 @@ volumes:
   app-data:
 
 networks:
-  # Deliberately NOT created by this compose file (external: true) — it's
-  # shared with whatever reverse-proxy stack (Nginx Proxy Manager, etc.)
-  # runs as its own separate container elsewhere on this host, so it has to
-  # exist independently of both stacks' lifecycles. One-time setup, only
-  # needed if your proxy is itself containerized (see the `app`/`relay`
-  # services' comments above, and docs/DEPLOY.md §13):
-  #   docker network create proxy-net
-  # Then join your proxy stack to the same network (e.g. add
-  # `networks: [proxy-net]` to its compose file, or `docker network connect
-  # proxy-net <proxy-container-name>`) and point it at `app:3000` / `relay:8080`
-  # by service name rather than an IP or `127.0.0.1`.
+  # Created once for a containerized reverse proxy: `docker network create proxy-net`
   proxy-net:
     external: true
