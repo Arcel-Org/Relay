@@ -1,7 +1,7 @@
 # Relay — self-hosted post-quantum encrypted messaging.
 #
 #   docker compose up -d
-#   docker compose up -d -f docker-compose.turn.yml   # + coturn for calls (optional)
+#   docker compose -f docker-compose.yml -f docker-compose.turn.yml up -d   # + coturn (optional)
 #
 # Runs from the published image (clone-free). To build from source instead,
 # add -f docker-compose.source.yml. Secrets come from .env — generate via
