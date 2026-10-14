@@ -1,12 +1,9 @@
 # Relay — self-hosted post-quantum encrypted messaging.
-#
-#   docker compose up -d
-#   docker compose -f docker-compose.yml -f docker-compose.turn.yml up -d   # + coturn (optional)
-#
-# Runs from the published image (clone-free). To build from source instead,
-# add -f docker-compose.source.yml. Secrets come from .env — generate via
-# scripts/quickstart.sh (or setup.sh). Ports bind to loopback; put a
-# TLS-terminating reverse proxy in front. Docs: docs/DEPLOY.md
+#   docker compose up -d                             # app + relay
+#   docker compose -f docker-compose.yml -f docker-compose.turn.yml up -d   # + calls
+# Runs from the published image; add -f docker-compose.source.yml to build
+# from source. Secrets in .env (scripts/quickstart.sh). Loopback ports — put a
+# TLS reverse proxy in front. Docs: docs/DEPLOY.md
 
 services:
   app:
@@ -18,13 +15,10 @@ services:
     networks: [default, proxy-net]
     ports:
       - "127.0.0.1:3000:3000"
-    ulimits:
-      nofile: { soft: 65536, hard: 65536 }
+    ulimits: { nofile: { soft: 65536, hard: 65536 } }
     security_opt: ["no-new-privileges:true"]
     cap_drop: ["ALL"]
-    logging:
-      driver: json-file
-      options: { max-size: "10m", max-file: "3" }
+    logging: { driver: json-file, options: { max-size: "10m", max-file: "3" } }
     environment:
       NODE_ENV: production
       PORT: "3000"
@@ -51,13 +45,10 @@ services:
     networks: [default, proxy-net]
     ports:
       - "127.0.0.1:8080:8080"
-    ulimits:
-      nofile: { soft: 65536, hard: 65536 }
+    ulimits: { nofile: { soft: 65536, hard: 65536 } }
     security_opt: ["no-new-privileges:true"]
     cap_drop: ["ALL"]
-    logging:
-      driver: json-file
-      options: { max-size: "10m", max-file: "3" }
+    logging: { driver: json-file, options: { max-size: "10m", max-file: "3" } }
     environment:
       NODE_ENV: production
       RELAY_PORT: "8080"
