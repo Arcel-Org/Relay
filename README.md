@@ -111,6 +111,11 @@ relay.example.com {
 > bypass the app's internal tunnel. It's not required; the single-route
 > configs above are correct and recommended.
 
+> The configs above assume the default host ports. If you changed
+> `APP_HOST_PORT` or `RELAY_HOST_PORT` in `relay/.env`, point the proxy at
+> those instead (e.g. `proxy_pass http://127.0.0.1:13000;`). The ports
+> inside the containers never change.
+
 ### Verify it's live
 
 ```bash

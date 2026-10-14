@@ -14,7 +14,7 @@ services:
       - app-data:/app/.data
     networks: [default, proxy-net]
     ports:
-      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:${APP_HOST_PORT:-3000}:3000"
     ulimits: { nofile: { soft: 65536, hard: 65536 } }
     security_opt: ["no-new-privileges:true"]
     cap_drop: ["ALL"]
@@ -44,7 +44,7 @@ services:
       - app-data:/app/.data
     networks: [default, proxy-net]
     ports:
-      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:${RELAY_HOST_PORT:-8080}:8080"
     ulimits: { nofile: { soft: 65536, hard: 65536 } }
     security_opt: ["no-new-privileges:true"]
     cap_drop: ["ALL"]
