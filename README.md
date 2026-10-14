@@ -4,57 +4,202 @@
 
 **Private, end-to-end encrypted messaging for high-trust networks.**
 
-Relay is a self-hosted messenger with post-quantum hybrid encryption. Every
-message gets a unique ephemeral key, the relay holds nothing for longer than
-20 minutes, and the only persistent copy is the encrypted store on your own
-device. No cloud history. No social graph. No ads. No tracking.
+Self-host it on a single $5 VPS. No cloud history, no social graph, no ads,
+no tracking — and it stays private even after quantum computers arrive.
 
-<!--
-  After publishing, add repo-dependent badges here, e.g.:
-  [![CI](https://img.shields.io/github/actions/workflow/status/<owner>/<repo>/ci.yml?branch=master)](...)
-  [![License: MIT / AGPL-3.0](https://img.shields.io/github/license/<owner>/<repo>)](...)
--->
-[![Node](https://img.shields.io/badge/Node.js-20-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org)
-[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://docs.docker.com/compose/)
+[![CI](https://img.shields.io/github/actions/workflow/status/Arcel-Org/Relay/ci.yml?branch=master&label=CI&logo=github&logoColor=white)](https://github.com/Arcel-Org/Relay/actions)
+[![Release](https://img.shields.io/github/v/release/Arcel-Org/Relay?label=release&logo=github&logoColor=white)](https://github.com/Arcel-Org/Relay/releases)
 [![License](https://img.shields.io/badge/license-MIT%20%2F%20AGPL--3.0-blue)](#license)
+[![Node](https://img.shields.io/badge/Node.js-20-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org)
+[![Docker](https://img.shields.io/badge/Docker%20Compose-2496ED?logo=docker&logoColor=white)](https://docs.docker.com/compose/)
 
-![Relay messenger](docs/screenshots/messenger.png)
+```bash
+curl -fsSL https://get.arcel.org/relay.sh | sh
+```
+
+*One command. No Node.js, no npm, no `git clone`, no build step. Prebuilt image on GHCR.*
+
+![Relay messenger — multi-chat, themes](docs/screenshots/messenger.png)
 
 </div>
 
 ---
 
+## Install
+
+You need **only Docker** (with the Compose v2 plugin), `curl`, and `openssl`.
+Run the one-liner, answer one question (your public domain), and Relay is up:
+
+```bash
+curl -fsSL https://get.arcel.org/relay.sh | sh
+```
+
+That downloads the installer, which:
+
+1. Fetches **only** `docker-compose.yml`, `docker-compose.release.yml`, and an
+   env template — never the whole repo, nothing to compile.
+2. Generates a production `.env` with random secrets (`SESSION_SECRET`,
+   `TOTP_ENCRYPTION_KEY` via `openssl`) and derives every other value from
+   your URL: the `wss://` relay address, the allowed origin, and the WebAuthn
+   passkey settings.
+3. Creates the shared `proxy-net` network, pulls the prebuilt image, and
+   starts the stack.
+
+Prefer to run the script directly (same thing, no `get.arcel.org` in the
+middle)?
+
+```bash
+curl -fsSL -o quickstart.sh https://raw.githubusercontent.com/Arcel-Org/Relay/master/scripts/quickstart.sh
+bash quickstart.sh --url https://relay.example.com --yes    # fully automated
+```
+
+### What you still do (15 minutes, once)
+
+Relay binds to **loopback only** by design — the ports are never exposed to
+the internet. You:
+
+1. **Point a DNS `A` record** at your server (or `CNAME` for a subdomain).
+2. **Terminate TLS** with a reverse proxy (nginx, Caddy, or Cloudflare) — the
+   app is `http://127.0.0.1:3000`, the WebSocket relay is
+   `http://127.0.0.1:8080`.
+3. Set `TRUST_PROXY_HEADERS=true` in `relay/.env` if you're behind a proxy,
+   then restart.
+
+Both service ports are loopback-bound, so there is no firewall surface for
+the app itself — only your reverse proxy listens on the public interface.
+Copy-paste configs below. The relay's WebSocket uses the **same origin and
+port** as the page (`wss://relay.example.com`), and the app server tunnels
+WS upgrades to the relay internally — so a single reverse-proxy route is
+all you need.
+
+**nginx** (the `Upgrade`/`Connection` headers are **required** — without
+them the WebSocket dies at the proxy)
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name relay.example.com;
+
+    ssl_certificate     /etc/letsencrypt/live/relay.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/relay.example.com/privkey.pem;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;      # wss tunnel (relay)
+        proxy_set_header Connection "upgrade";      #   → tunnelled to :8080
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 86400s;
+    }
+}
+```
+
+**Caddy** (automatic HTTPS, WebSocket support built in — this is all you
+need)
+
+```caddyfile
+relay.example.com {
+    reverse_proxy 127.0.0.1:3000
+}
+```
+
+> For very large deployments, the relay also listens on `/ws` directly —
+> you can add an explicit `location /ws` → `http://127.0.0.1:8080` route to
+> bypass the app's internal tunnel. It's not required; the single-route
+> configs above are correct and recommended.
+
+### Verify it's live
+
+```bash
+cd relay
+docker compose -f docker-compose.yml -f docker-compose.release.yml ps   # both 'healthy'
+curl http://127.0.0.1:3000/api/status
+# {"ok":true,"relayReachable":true,"dbReachable":true,...}
+```
+
+Then sign up at `https://relay.example.com`, and you have a post-quantum,
+end-to-end-encrypted messenger you actually control.
+
+---
+
+## Updating — never breaks your setup
+
+Updating is a **pull**, not a migration. Your data and secrets are never
+touched:
+
+```bash
+# from the relay/ directory that the installer created:
+docker compose -f docker-compose.yml -f docker-compose.release.yml pull
+docker compose -f docker-compose.yml -f docker-compose.release.yml up -d
+```
+
+Or just run the installer again — it is **idempotent by design**:
+
+- It **never overwrites** an existing `SESSION_SECRET` or `TOTP_ENCRYPTION_KEY`
+  (and never edits an existing `.env` value it didn't generate).
+- All data lives in the named `app-data` volume, which survives container
+  recreation across updates. Your account, conversations, keys, and Vault are
+  untouched.
+- Services and volume names are stable across releases, so an updated
+  `docker-compose.yml` drops in cleanly over the old one.
+
+Before a bigger jump (e.g. between major versions), take a backup first (next
+section) — it costs one command and makes any upgrade a no-brainer to roll
+back.
+
+---
+
+## Backups
+
+Your history lives on your device, but the server-side store (accounts,
+session keys, group directory) lives in the `app-data` volume. Snapshot it
+daily:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.release.yml exec -T app \
+  tar czf - -C /app/.data . > backup-$(date +%F).tar.gz
+```
+
+Or, if you keep the repo, use the helper: `./scripts/backup.sh` (snapshots to
+`./backups/`, optionally on a systemd timer) and `./scripts/restore.sh` to
+restore. The full backup → restore cycle is documented and exercised in
+[`docs/DEPLOY.md`](docs/DEPLOY.md) §5–§6.
+
+---
+
 ## Why Relay
 
-Most messengers make a trade you can't verify: *our servers are secure — trust
-us.* Relay inverts that. The whole stack is open source, the cryptography is
-documented, and the design gives the operator as little to abuse as physics
-allows:
+Most messengers make a trade you can't verify: *our servers are secure —
+trust us.* Relay inverts that. The whole stack is open source, the
+cryptography is documented, and the design gives the operator as little to
+abuse as physics allows:
 
 - **End-to-end encrypted** — messages are encrypted before they leave your
   device. The relay server is a dumb pipe: it forwards ciphertext and
   eventually deletes it.
 - **Post-quantum from day one** — hybrid X25519 + ML-KEM768 key agreement
-  defends against "harvest now, decrypt later."
+  defends against *harvest now, decrypt later.*
 - **No cloud history** — the relay purges messages after 20 minutes. The only
   persistent copy lives in your encrypted local store.
-- **Self-hostable** — one command (`./scripts/setup.sh --up`) brings up the
-  web app and relay server. You can run the whole product on hardware you
-  control.
+- **Self-hostable** — one command brings up the whole product on hardware you
+  control. No accounts with anyone, no phone-number requirement.
 - **Verifiable** — every key, every format, every retention decision is in
   this repository. Security isn't a feature you're asked to believe in.
 
 ## Features
 
-- **Hybrid post-quantum end-to-end encryption** — X25519 + ML-KEM768 key
-  agreement with per-message key rotation, ChaCha20-Poly1305 (AEAD)
+- **Hybrid post-quantum E2E encryption** — X25519 + ML-KEM768 key agreement
+  with per-message key rotation, ChaCha20-Poly1305 (AEAD)
 - **20-minute TTL** — relay-held messages auto-delete; local history persists
   encrypted under your private key
 - **Relay ID identity** — a cryptographic identifier derived from your public
-  key (`abcd-1234-...-ef90`, self-certifying, no server trusted to vouch for
-  it), optionally paired with a claimed `@username`
-- **Two-factor login** — TOTP + PIN; TOTP secrets stored encrypted at rest,
-  recovery via BIP39 mnemonic
+  key (`abcd-1234-…-ef90`, self-certifying, no server vouches for it),
+  optionally paired with a claimed `@username`
+- **Two-factor login** — TOTP + PIN; TOTP secrets encrypted at rest, recovery
+  via BIP39 mnemonic
 - **Passkeys / WebAuthn** — hardware-key login and 2FA
 - **Encrypted local store** — IndexedDB, all values encrypted under an
   HKDF-derived key
@@ -68,76 +213,6 @@ allows:
   dictionary shrinks payloads so no server sees them
 - **Zero data retention** — minimal metadata, no message logging, no social
   graph
-
-## Quickstart (Docker only — one command, no clone)
-
-You need **only Docker** (with the Compose v2 plugin), `curl` and `openssl`.
-No Node.js, no npm, no git clone of the repo, no compilation — the app and
-relay run from a **prebuilt image**, so there's nothing to build (*one* image
-serves both the web app on `:3000` and the relay on `:8080*).
-
-```bash
-curl -fsSL -o quickstart.sh https://raw.githubusercontent.com/Arcel-Org/Relay/master/scripts/quickstart.sh
-bash quickstart.sh            # prompts for your public URL
-# or, fully automated:
-bash quickstart.sh --url https://relay.example.com --yes
-```
-
-`quickstart.sh` fetches **only** the two Compose files and the env template
-(never the repo), generates `SESSION_SECRET` and `TOTP_ENCRYPTION_KEY` with
-`openssl rand -hex 32`, and asks for your public URL. From that one URL it
-derives everything the stack needs: `NEXT_PUBLIC_RELAY_URL` (`wss://`),
-`WS_ALLOWED_ORIGINS`, and the `WEBAUTHN_RP_ID` / `WEBAUTHN_ORIGIN` passkey
-values. It writes `./relay/.env` **without ever overwriting an existing
-secret** — re-running is safe — then pulls the image and starts the pod.
-
-The relay URL is resolved at *runtime* (`RELAY_WS_URL`), so changing your
-public URL is a restart — never a rebuild. Self-hosting from source is still
-supported (`git clone` + `./scripts/setup.sh --up`), but the image-based
-path above is the recommended, turnkey route.
-
-Verify it's live:
-
-```bash
-(cd relay && docker compose -f docker-compose.yml -f docker-compose.release.yml ps)  # both 'healthy'
-curl http://127.0.0.1:3000/api/status
-# {"ok":true,"relayReachable":true,"dbReachable":true,...}
-```
-
-Then put a TLS-terminating reverse proxy (nginx, Caddy, or Cloudflare) in
-front — the app and relay bind to loopback only, and the `wss://` relay URL
-needs real HTTPS to work in a browser. If you're behind a proxy, set
-`TRUST_PROXY_HEADERS=true` in `./relay/.env` and restart. The full production
-guide (TLS, backups, updates, TURN for calls, multi-region) is in
-[`docs/DEPLOY.md`](docs/DEPLOY.md), and `quickstart.sh --help` lists its
-automation flags.
-
-### Daily operations (backup / update / restore)
-
-A few scripts cover the routine lifecycle — all idempotent and safe to
-re-run:
-
-```bash
-./scripts/backup.sh              # snapshot the app-data volume to ./backups/ (or schedule the systemd timer)
-./scripts/update.sh              # backup + build + deploy + auto-rollback on failure
-./scripts/update.sh --rollback   # revert to the last-known-good images
-
-docker compose down              # then restore (never wipe under a live stack):
-./scripts/restore.sh             # restore the newest backup in ./backups/
-```
-
-The full backup → restore cycle is described in [`docs/DEPLOY.md`](docs/DEPLOY.md)
-§5–§6 and has been exercised against a live stack.
-
-### Troubleshooting
-
-| Symptom | Cause / fix |
-|---|---|
-| `docker compose ps` shows `unhealthy` or `starting` for a while | Give the app up to ~75s (it waits for the relay to be healthy before passing its own healthcheck). |
-| Healthcheck uses `127.0.0.1`, never `localhost` | Inside the container `localhost` resolves to IPv6 `::1` first; the IPv4-only server refuses it. This is already handled in the compose file. |
-| Fresh volume errors like `SQLITE_CANTOPEN` (err 14) | The app runs as a non-root user; an empty named volume is root-owned. The image ships a marker that fixes ownership on first mount — if you mount your own pre-existing volume, ensure it's writable by UID 1000. |
-| `WS_ALLOWED_ORIGINS` missing | The relay refuses to start without it. `setup.sh` sets it from your URL; if writing `.env` by hand, it must list your production origin(s). |
-| Dev `.env` values leak into the container | `PORT`, `RELAY_PORT`, and `RELAY_HOST` are pinned inside compose so a dev `.env` can't silently break the container. |
 
 ## Screenshots
 
@@ -201,7 +276,7 @@ messenger:
 ### Post-quantum hybrid key exchange
 
 Relay's key agreement is a **hybrid of classical and post-quantum
-cryptography**, protecting against "harvest now, decrypt later" attacks:
+cryptography**, protecting against *harvest now, decrypt later* attacks:
 
 - **Classical**: X25519 elliptic-curve Diffie–Hellman (ECDH)
 - **Post-quantum**: ML-KEM768 (NIST FIPS 203)
@@ -229,6 +304,17 @@ References: [NIST FIPS 203 (ML-KEM)](https://nvlpubs.nist.gov/nistpubs/FIPS/NIST
 See [`docs/PROTOCOL.md`](docs/PROTOCOL.md) for the wire protocol and
 [`docs/API.md`](docs/API.md) for the HTTP API. Vulnerabilities: see
 [`SECURITY.md`](SECURITY.md).
+
+## Troubleshooting
+
+| Symptom | Cause / fix |
+|---|---|
+| `docker compose ps` shows `unhealthy` or `starting` for a while | Give the app up to ~75s (it waits for the relay to be healthy before passing its own healthcheck). |
+| Healthcheck uses `127.0.0.1`, never `localhost` | Inside the container `localhost` resolves to IPv6 `::1` first; the IPv4-only server refuses it. Already handled in the compose file. |
+| Fresh volume errors like `SQLITE_CANTOPEN` (err 14) | The app runs as a non-root user; an empty named volume is root-owned. The image ships a marker that fixes ownership on first mount — if you mount your own pre-existing volume, ensure it's writable by UID 1000. |
+| `WS_ALLOWED_ORIGINS` missing | The relay refuses to start without it. The installer sets it from your URL; if writing `.env` by hand, it must list your production origin(s). |
+| Dev `.env` values leak into the container | `PORT`, `RELAY_PORT`, and `RELAY_HOST` are pinned inside compose so a dev `.env` can't silently break the container. |
+| Relay URL changed but the app still uses the old one | The relay URL is read at *runtime* from `RELAY_WS_URL` — restart the container after editing `.env`; no rebuild needed. |
 
 ## Tech stack
 
@@ -265,11 +351,11 @@ relay/
 ├── server/
 │   ├── relay-node.ts       # Relay server (WebSocket, Node)
 │   └── relay-schemas.ts    # Wire message schemas
-├── scripts/                # setup.sh, update.sh, backup.sh, load-test-relay.ts
+├── scripts/                # quickstart.sh (installer), setup.sh, update.sh, backup.sh
 ├── docs/                   # DEPLOY, PROTOCOL, API, crypto review
 ├── docker-compose.yml      # app + relay (+ optional TURN)
 ├── Dockerfile
-└── .github/ .gitea/        # CI workflows (lint, type-check, test, build, secret scan)
+└── .github/                # CI workflows (lint, type-check, test, build, secret scan)
 ```
 
 ## Development
@@ -289,6 +375,10 @@ npm run build      # production build (app)
 npm run build:relay
 npm run test:e2e   # Playwright end-to-end (builds with a test relay first)
 ```
+
+Self-hosting from source (instead of the prebuilt image) is fully supported:
+`git clone` + `./scripts/setup.sh --up`. The image-based path is the
+recommended, turnkey route.
 
 ## Roadmap
 
@@ -319,3 +409,11 @@ Open an issue for bugs or questions, and see
 [`CONTRIBUTING.md`](CONTRIBUTING.md) before opening a PR. Found a security
 issue? Please read [`SECURITY.md`](SECURITY.md) and disclose it privately to
 `security@arcel.org` rather than in a public issue.
+
+---
+
+<div align="center">
+
+[get.arcel.org](https://get.arcel.org) &nbsp;·&nbsp; [Docs](docs/DEPLOY.md) &nbsp;·&nbsp; [Security](SECURITY.md) &nbsp;·&nbsp; [Changelog](https://github.com/Arcel-Org/Relay/releases) &nbsp;·&nbsp; [Contact](mailto:contact@arcel.org)
+
+</div>
