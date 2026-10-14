@@ -1,0 +1,24 @@
+# Optional coturn (TURN) server for private voice/video call media relay.
+# Add it to any command:
+#   docker compose -f docker-compose.yml -f docker-compose.turn.yml up -d
+#
+# Needs TURN_SECRET in .env (generate: openssl rand -hex 32). Without it,
+# calls fall back to STUN + direct P2P — functional, but the two callers'
+# real IP addresses are exposed to each other via ICE candidates.
+
+services:
+  coturn:
+    image: coturn/coturn@sha256:0feee4fc1f45c7c053c8fee3e1ab941b1a1b9a0429bc01e18126735410770bfd
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      TURN_SECRET: ${TURN_SECRET:-}
+    entrypoint: ["sh", "-c"]
+    command:
+      - |
+        set -e
+        test -n "$$TURN_SECRET" || { echo "TURN_SECRET not set in .env" >&2; exit 1; }
+        conf=$$(mktemp)
+        printf 'use-auth-secret\nstatic-auth-secret=%s\nrealm=relay\nno-cli\nmin-port=49152\nmax-port=49200\nlog-file=stdout\n' "$$TURN_SECRET" > "$$conf"
+        chmod 600 "$$conf"
+        exec turnserver -c "$$conf"

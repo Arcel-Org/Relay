@@ -1,32 +1,36 @@
 # Relay — self-hosted post-quantum encrypted messaging.
-#   docker compose up -d                    # app (:3000) + relay (:8080)
-#   docker compose --profile turn up -d     # + coturn for call media (optional)
+#   docker compose up -d                          # app (:3000) + relay (:8080)
+#   docker compose -f docker-compose.turn.yml up -d   # + coturn for calls (optional)
 # Secrets come from .env — generate via scripts/quickstart.sh (or setup.sh).
 # Both ports bind to loopback; put a TLS-terminating reverse proxy in front.
 # Docs: docs/DEPLOY.md
 
+x-common: &common
+  restart: unless-stopped
+  env_file: .env
+  volumes:
+    - app-data:/app/.data
+  networks: [default, proxy-net]
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "3" }
+  ulimits:
+    nofile: { soft: 65536, hard: 65536 }
+  security_opt: ["no-new-privileges:true"]
+  cap_drop: ["ALL"]
+  deploy:
+    resources:
+      limits: { cpus: "2", memory: 2G }
+
 services:
   app:
+    <<: *common
     build:
       context: .
       args:
         NEXT_PUBLIC_RELAY_URL: ${NEXT_PUBLIC_RELAY_URL:?set NEXT_PUBLIC_RELAY_URL in .env (docs/DEPLOY.md §2)}
-    restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
     ports:
       - "127.0.0.1:3000:3000"
-    networks: [default, proxy-net]
-    ulimits:
-      nofile: { soft: 65536, hard: 65536 }
-    security_opt: ["no-new-privileges:true"]
-    cap_drop: ["ALL"]
-    deploy:
-      resources:
-        limits: { cpus: "2", memory: 2G }
     environment:
       NODE_ENV: production
       PORT: "3000"
@@ -34,9 +38,6 @@ services:
       RELAY_PORT: "8080"
       NEXT_PUBLIC_RELAY_URL: ${NEXT_PUBLIC_RELAY_URL}
       RELAY_WS_URL: ${NEXT_PUBLIC_RELAY_URL}
-    env_file: .env
-    volumes:
-      - app-data:/app/.data
     depends_on:
       relay:
         condition: service_healthy
@@ -48,32 +49,16 @@ services:
       start_period: 15s
 
   relay:
+    <<: *common
     build:
       context: .
       args:
         NEXT_PUBLIC_RELAY_URL: ${NEXT_PUBLIC_RELAY_URL:?set NEXT_PUBLIC_RELAY_URL in .env (docs/DEPLOY.md §2)}
-    restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
     ports:
       - "127.0.0.1:8080:8080"
-    networks: [default, proxy-net]
-    ulimits:
-      nofile: { soft: 65536, hard: 65536 }
-    security_opt: ["no-new-privileges:true"]
-    cap_drop: ["ALL"]
-    deploy:
-      resources:
-        limits: { cpus: "2", memory: 2G }
     environment:
       NODE_ENV: production
       RELAY_PORT: "8080"
-    env_file: .env
-    volumes:
-      - app-data:/app/.data
     command: ["node", "dist-server/server/relay-node.js"]
     healthcheck:
       test: ["CMD-SHELL", "nc -z 127.0.0.1 8080 || exit 1"]
@@ -82,28 +67,9 @@ services:
       retries: 3
       start_period: 10s
 
-  coturn:
-    # Optional TURN server for call media relay (needs TURN_SECRET in .env)
-    image: coturn/coturn@sha256:0feee4fc1f45c7c053c8fee3e1ab941b1a1b9a0429bc01e18126735410770bfd
-    profiles: ["turn"]
-    restart: unless-stopped
-    network_mode: host
-    environment:
-      TURN_SECRET: ${TURN_SECRET:-}
-    entrypoint: ["sh", "-c"]
-    command:
-      - |
-        set -e
-        test -n "$$TURN_SECRET" || { echo "TURN_SECRET not set in .env" >&2; exit 1; }
-        conf=$$(mktemp)
-        printf 'use-auth-secret\nstatic-auth-secret=%s\nrealm=relay\nno-cli\nmin-port=49152\nmax-port=49200\nlog-file=stdout\n' "$$TURN_SECRET" > "$$conf"
-        chmod 600 "$$conf"
-        exec turnserver -c "$$conf"
-
 volumes:
   app-data:
 
 networks:
-  # Create once if your reverse proxy runs as a container: docker network create proxy-net
   proxy-net:
     external: true

@@ -52,8 +52,8 @@ peer-to-peer — functional, but each caller's real IP address is visible to
 the other via ICE candidates. Enabling TURN routes all call media through it
 instead, so neither party ever sees the other's IP.
 
-Bring up the bundled coturn service with `docker-compose --profile turn up -d`
-(not started by the default `docker-compose up`, since it requires a secret
+Bring up the bundled coturn service with `docker compose -f docker-compose.yml -f docker-compose.turn.yml up -d`
+(not started by the default `docker compose up`, since it requires a secret
 most self-hosters won't have set yet). Unlike a prior design, there is no
 long-lived client-exposed TURN credential — the app mints a fresh,
 6-hour-lived HMAC credential per user via `app/api/turn-credentials`, using
@@ -62,7 +62,7 @@ credential is stored server-side per-issue; coturn verifies the HMAC itself.
 
 | Variable          | Default                          | Description                                                               |
 |-------------------|-----------------------------------|---------------------------------------------------------------------------|
-| `TURN_SECRET`      | (unset — TURN disabled)          | Shared HMAC secret between the app and coturn. Generate with `openssl rand -hex 32`. Must match on both sides — the `docker-compose --profile turn` setup wires this automatically from one value. |
+| `TURN_SECRET`      | (unset — TURN disabled)          | Shared HMAC secret between the app and coturn. Generate with `openssl rand -hex 32`. Must match on both sides — the `-f docker-compose.turn.yml` setup wires this automatically from one value. |
 | `TURN_PUBLIC_HOST` | request `Host` header             | Hostname clients should connect to for TURN. Override if coturn isn't reachable at the same host as the app. |
 
 ### Session and Security
@@ -185,10 +185,10 @@ This starts two services:
 | `app`   | 3000 | `node server.js` (Dockerfile `CMD`)             | Next.js frontend + WebSocket-upgrade proxy to `relay` |
 | `relay` | 8080 | `node dist-server/server/relay-node.js`         | WebSocket relay, compiled ahead of time -- the runtime image has no `ts-node`/`typescript` |
 
-Add `--profile turn` to also start the optional coturn service (see [TURN Server](#turn-server-media-relay) above):
+Add `-f docker-compose.turn.yml` to also start the optional coturn service (see [TURN Server](#turn-server-media-relay) above):
 
 ```bash
-docker compose --profile turn up -d
+docker compose -f docker-compose.yml -f docker-compose.turn.yml up -d
 ```
 
 ### Environment Variables in Compose
@@ -667,7 +667,7 @@ What this means in practice:
 |--------------|--------------|--------------|-------------------------|
 | Next.js app  | 3000         | HTTP(S)      | `PORT`                  |
 | Relay server | 8080         | WebSocket    | `RELAY_PORT` or `PORT`  |
-| TURN server (optional, `--profile turn`) | 3478 | UDP/TCP | fixed in `docker-compose.yml` |
+| TURN server (optional, `docker-compose.turn.yml`) | 3478 | UDP/TCP | fixed in `docker-compose.turn.yml` |
 
 ---
 
@@ -764,7 +764,7 @@ infrastructure, and it complements rather than replaces the app's own
 Monitoring section) — point an external uptime check at `/api/health` too
 if you want alerting that survives Dokploy itself being down.
 
-### Not yet verified: TURN (`--profile turn`) under Dokploy
+### Not yet verified: TURN (`docker-compose.turn.yml`) under Dokploy
 
 The optional coturn service (§2's TURN Server section) uses
 `network_mode: host` to work, which sits outside Docker Compose's normal

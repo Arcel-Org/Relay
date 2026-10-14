@@ -11,7 +11,8 @@
 #   bash quickstart.sh --url https://relay.example.com --yes   # fully automated
 #
 # What it does:
-#   1. Fetches docker-compose.yml, docker-compose.release.yml and .env.example
+#   1. Fetches docker-compose.yml, docker-compose.release.yml,
+#      docker-compose.turn.yml (optional TURN) and .env.example
 #   2. Asks for (or takes) the public URL, derives the relay wss URL, the
 #      allowed origin, and the WebAuthn RP values from it
 #   3. Generates SESSION_SECRET and TOTP_ENCRYPTION_KEY if not already set
@@ -71,7 +72,7 @@ fi
 mkdir -p "$DIR"
 log() { printf '\n>> %s\n' "$*"; }
 log "Fetching compose files from $SOURCE_BASE"
-for f in docker-compose.yml docker-compose.release.yml .env.example; do
+for f in docker-compose.yml docker-compose.release.yml docker-compose.turn.yml .env.example; do
   if ! curl -fsSL -o "$DIR/$f" "$SOURCE_BASE/$f"; then
     echo "ERROR: could not fetch $f from $SOURCE_BASE (is the release URL reachable?)." >&2
     exit 1

@@ -163,12 +163,12 @@ services:
       start_period: 10s
 
   # ── TURN server for call media relay (optional, per-region) ─────────
-  # Same coturn setup as docker-compose.yml. Running this per region gets
+  # Same coturn setup as docker-compose.turn.yml. Running this per region gets
   # each region's calls the lowest-latency media relay; see the
   # network_mode: host caveat in the header comment above if co-locating
   # more than one region on a single physical host.
   coturn:
-    # Pinned by digest — see docker-compose.yml's matching coturn comment.
+    # Pinned by digest — see docker-compose.turn.yml's matching coturn comment.
     # Keep this in sync with that file's digest; both should be re-pinned
     # together when actually upgrading.
     image: coturn/coturn@sha256:0feee4fc1f45c7c053c8fee3e1ab941b1a1b9a0429bc01e18126735410770bfd # latest as of 2026-07-24
@@ -177,7 +177,7 @@ services:
     network_mode: host
     labels:
       - "region=${REGION:?Set REGION in this VPS's .env, e.g. us-east, eu-west, ap-south}"
-    # Deliberately NOT `${TURN_SECRET:?...}` here — see docker-compose.yml's
+    # Deliberately NOT `${TURN_SECRET:?...}` here — see docker-compose.turn.yml's
     # matching comment: Compose interpolates every service's environment at
     # parse time regardless of active profiles, so a hard-require in this
     # YAML broke even a profile-less `docker compose up -d`. Enforced in the
