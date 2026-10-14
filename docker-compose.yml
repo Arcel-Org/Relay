@@ -1,32 +1,18 @@
 # Relay — self-hosted post-quantum encrypted messaging.
-#
-#   docker compose up -d                          # app (:3000) + relay (:8080)
-#   docker compose --profile turn up -d           # + coturn (call media relay)
-#
-# Secrets come from .env — generate it with scripts/quickstart.sh (image
-# path) or scripts/setup.sh (source path); both are idempotent.
-#
-# Key facts:
-#   • Both ports bind to loopback only. Put a TLS-terminating reverse proxy
-#     in front (nginx / Caddy / Cloudflare). If the proxy is itself a
-#     container, create the shared network once — `docker network create
-#     proxy-net` — join it, and point at `app:3000` / `relay:8080` by name.
-#   • NEXT_PUBLIC_RELAY_URL is baked into the client bundle at build time, so
-#     set it to the PUBLIC wss:// URL browsers can reach (never the internal
-#     `relay:8080` name). The runtime RELAY_WS_URL override lets a prebuilt
-#     image resolve the URL without a rebuild.
-#   • app and relay share one image; `command` swaps in the relay entrypoint.
-#
-# Full guide: docs/DEPLOY.md.
+#   docker compose up -d                    # app (:3000) + relay (:8080)
+#   docker compose --profile turn up -d     # + coturn for call media (optional)
+# Secrets come from .env — generate via scripts/quickstart.sh (or setup.sh).
+# Both ports bind to loopback; put a TLS-terminating reverse proxy in front.
+# Docs: docs/DEPLOY.md
 
 services:
   app:
     build:
       context: .
       args:
-        NEXT_PUBLIC_RELAY_URL: ${NEXT_PUBLIC_RELAY_URL:?Set NEXT_PUBLIC_RELAY_URL in .env (see docs/DEPLOY.md §2)}
+        NEXT_PUBLIC_RELAY_URL: ${NEXT_PUBLIC_RELAY_URL:?set NEXT_PUBLIC_RELAY_URL in .env (docs/DEPLOY.md §2)}
     restart: unless-stopped
-    logging: &logging
+    logging:
       driver: json-file
       options:
         max-size: "10m"
@@ -34,26 +20,20 @@ services:
     ports:
       - "127.0.0.1:3000:3000"
     networks: [default, proxy-net]
-    ulimits: &ulimits
-      nofile:
-        soft: 65536
-        hard: 65536
-    security_opt: [no-new-privileges:true]
-    cap_drop: [ALL]
+    ulimits:
+      nofile: { soft: 65536, hard: 65536 }
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
     deploy:
       resources:
-        limits:
-          cpus: "2"
-          memory: 2G
+        limits: { cpus: "2", memory: 2G }
     environment:
       NODE_ENV: production
-      RELAY_WS_URL: ${NEXT_PUBLIC_RELAY_URL}   # runtime URL for prebuilt images
-      NEXT_PUBLIC_RELAY_URL: ${NEXT_PUBLIC_RELAY_URL}
-      # Pinned so a stray dev .env can't change the listen port or which
-      # relay the healthcheck probes.
       PORT: "3000"
       RELAY_HOST: relay
       RELAY_PORT: "8080"
+      NEXT_PUBLIC_RELAY_URL: ${NEXT_PUBLIC_RELAY_URL}
+      RELAY_WS_URL: ${NEXT_PUBLIC_RELAY_URL}
     env_file: .env
     volumes:
       - app-data:/app/.data
@@ -71,20 +51,23 @@ services:
     build:
       context: .
       args:
-        NEXT_PUBLIC_RELAY_URL: ${NEXT_PUBLIC_RELAY_URL:?Set NEXT_PUBLIC_RELAY_URL in .env (see docs/DEPLOY.md §2)}
+        NEXT_PUBLIC_RELAY_URL: ${NEXT_PUBLIC_RELAY_URL:?set NEXT_PUBLIC_RELAY_URL in .env (docs/DEPLOY.md §2)}
     restart: unless-stopped
-    logging: *logging
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     ports:
       - "127.0.0.1:8080:8080"
     networks: [default, proxy-net]
-    ulimits: *ulimits
-    security_opt: [no-new-privileges:true]
-    cap_drop: [ALL]
+    ulimits:
+      nofile: { soft: 65536, hard: 65536 }
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
     deploy:
       resources:
-        limits:
-          cpus: "2"
-          memory: 2G
+        limits: { cpus: "2", memory: 2G }
     environment:
       NODE_ENV: production
       RELAY_PORT: "8080"
@@ -100,12 +83,10 @@ services:
       start_period: 10s
 
   coturn:
-    # Optional TURN server for call media relay. Needs TURN_SECRET in .env:
-    #   docker compose --profile turn up -d
+    # Optional TURN server for call media relay (needs TURN_SECRET in .env)
     image: coturn/coturn@sha256:0feee4fc1f45c7c053c8fee3e1ab941b1a1b9a0429bc01e18126735410770bfd
     profiles: ["turn"]
     restart: unless-stopped
-    logging: *logging
     network_mode: host
     environment:
       TURN_SECRET: ${TURN_SECRET:-}
@@ -113,20 +94,9 @@ services:
     command:
       - |
         set -e
-        if [ -z "$$TURN_SECRET" ]; then
-          echo "TURN_SECRET not set — add it to .env before enabling the turn profile (see docs/DEPLOY.md)." >&2
-          exit 1
-        fi
+        test -n "$$TURN_SECRET" || { echo "TURN_SECRET not set in .env" >&2; exit 1; }
         conf=$$(mktemp)
-        cat > "$$conf" <<EOF
-        use-auth-secret
-        static-auth-secret=$$TURN_SECRET
-        realm=relay
-        no-cli
-        min-port=49152
-        max-port=49200
-        log-file=stdout
-        EOF
+        printf 'use-auth-secret\nstatic-auth-secret=%s\nrealm=relay\nno-cli\nmin-port=49152\nmax-port=49200\nlog-file=stdout\n' "$$TURN_SECRET" > "$$conf"
         chmod 600 "$$conf"
         exec turnserver -c "$$conf"
 
@@ -134,6 +104,6 @@ volumes:
   app-data:
 
 networks:
-  # Created once for a containerized reverse proxy: `docker network create proxy-net`
+  # Create once if your reverse proxy runs as a container: docker network create proxy-net
   proxy-net:
     external: true
