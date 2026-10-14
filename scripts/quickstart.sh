@@ -11,14 +11,13 @@
 #   bash quickstart.sh --url https://relay.example.com --yes   # fully automated
 #
 # What it does:
-#   1. Fetches docker-compose.yml, docker-compose.release.yml,
-#      docker-compose.turn.yml (optional TURN) and .env.example
+#   1. Fetches docker-compose.yml, docker-compose.turn.yml (optional TURN) and
+#      .env.example
 #   2. Asks for (or takes) the public URL, derives the relay wss URL, the
 #      allowed origin, and the WebAuthn RP values from it
 #   3. Generates SESSION_SECRET and TOTP_ENCRYPTION_KEY if not already set
 #   4. Creates the shared proxy-net network if missing
-#   5. Pulls the image and starts the stack (see docker-compose.release.yml —
-#      that override swaps `build` for the GHCR image)
+#   5. Pulls the image and starts the stack (docker compose up -d)
 #
 # To update later:  bash quickstart.sh --yes --url https://relay.example.com
 # (this re-fetches the compose files, pulls the latest image, and re-ups).
@@ -72,7 +71,7 @@ fi
 mkdir -p "$DIR"
 log() { printf '\n>> %s\n' "$*"; }
 log "Fetching compose files from $SOURCE_BASE"
-for f in docker-compose.yml docker-compose.release.yml docker-compose.turn.yml .env.example; do
+for f in docker-compose.yml docker-compose.turn.yml .env.example; do
   if ! curl -fsSL -o "$DIR/$f" "$SOURCE_BASE/$f"; then
     echo "ERROR: could not fetch $f from $SOURCE_BASE (is the release URL reachable?)." >&2
     exit 1
@@ -142,7 +141,7 @@ set_env TOTP_ENCRYPTION_KEY   "$TOTP_ENCRYPTION_KEY"
 
 log "Configured for $URL (relay wss: $NEXT_PUBLIC_RELAY_URL)"
 
-[ "$AUTO_UP" = "0" ] && { echo "Files written to $DIR. Start with:"; echo "  (cd $DIR && docker compose -f docker-compose.yml -f docker-compose.release.yml pull && docker compose -f docker-compose.yml -f docker-compose.release.yml up -d)"; exit 0; }
+[ "$AUTO_UP" = "0" ] && { echo "Files written to $DIR. Start with:"; echo "  (cd $DIR && docker compose pull && docker compose up -d)"; exit 0; }
 
 # ── Ensure the shared network exists (compose requires it) ────────────────
 if ! docker network inspect proxy-net >/dev/null 2>&1; then
@@ -151,10 +150,11 @@ fi
 
 # ── Pull + start ───────────────────────────────────────────────────────────
 cd "$DIR"
+export RELAY_IMAGE
 log "Pulling image ${RELAY_IMAGE}"
-docker compose -f docker-compose.yml -f docker-compose.release.yml pull
+docker compose pull
 log "Starting the stack (give the app up to ~75s for its healthcheck)"
-docker compose -f docker-compose.yml -f docker-compose.release.yml up -d
+docker compose up -d
 docker compose ps
 
 cat <<'EOF'

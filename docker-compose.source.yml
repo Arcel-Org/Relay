@@ -1,0 +1,21 @@
+# Build Relay from source instead of using the published image.
+# Add to any command:
+#   docker compose -f docker-compose.yml -f docker-compose.source.yml up -d --build
+#
+# NEXT_PUBLIC_RELAY_URL is baked into the client bundle at build time, so it
+# must be the real PUBLIC wss:// URL (never the internal relay:8080 name).
+
+services:
+  app:
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_RELAY_URL: ${NEXT_PUBLIC_RELAY_URL:?set NEXT_PUBLIC_RELAY_URL in .env (docs/DEPLOY.md §2)}
+    image: relay-app:local
+
+  relay:
+    build:
+      context: .
+      args:
+        NEXT_PUBLIC_RELAY_URL: ${NEXT_PUBLIC_RELAY_URL:?set NEXT_PUBLIC_RELAY_URL in .env (docs/DEPLOY.md §2)}
+    image: relay-relay:local

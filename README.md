@@ -36,8 +36,8 @@ curl -fsSL https://get.arcel.org/relay.sh | sh
 
 That downloads the installer, which:
 
-1. Fetches **only** `docker-compose.yml`, `docker-compose.release.yml`, and an
-   env template — never the whole repo, nothing to compile.
+1. Fetches **only** `docker-compose.yml`, the optional `docker-compose.turn.yml`,
+   and an env template — never the whole repo, nothing to compile.
 2. Generates a production `.env` with random secrets (`SESSION_SECRET`,
    `TOTP_ENCRYPTION_KEY` via `openssl`) and derives every other value from
    your URL: the `wss://` relay address, the allowed origin, and the WebAuthn
@@ -115,7 +115,7 @@ relay.example.com {
 
 ```bash
 cd relay
-docker compose -f docker-compose.yml -f docker-compose.release.yml ps   # both 'healthy'
+docker compose ps   # both 'healthy'
 curl http://127.0.0.1:3000/api/status
 # {"ok":true,"relayReachable":true,"dbReachable":true,...}
 ```
@@ -132,8 +132,8 @@ touched:
 
 ```bash
 # from the relay/ directory that the installer created:
-docker compose -f docker-compose.yml -f docker-compose.release.yml pull
-docker compose -f docker-compose.yml -f docker-compose.release.yml up -d
+docker compose pull
+docker compose up -d
 ```
 
 Or just run the installer again — it is **idempotent by design**:
@@ -159,7 +159,7 @@ session keys, group directory) lives in the `app-data` volume. Snapshot it
 daily:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.release.yml exec -T app \
+docker compose exec -T app \
   tar czf - -C /app/.data . > backup-$(date +%F).tar.gz
 ```
 

@@ -33,7 +33,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-COMPOSE="docker compose"
+COMPOSE="docker compose -f docker-compose.yml -f docker-compose.source.yml"
 PROJECT_DIR="$(basename "$(pwd)")"
 BACKUP_DIR="./backups"
 HEALTH_TIMEOUT_SEC=120

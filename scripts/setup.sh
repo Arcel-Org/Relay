@@ -187,6 +187,8 @@ if [ "$AUTO_UP" = "1" ]; then
   if ! docker network inspect proxy-net >/dev/null 2>&1; then
     docker network create proxy-net >/dev/null 2>&1 && echo ">> created shared network 'proxy-net'"
   fi
-  docker compose up -d --build
+  # -f docker-compose.source.yml swaps the published image for a from-source
+  # build (the base compose runs the published GHCR image by default).
+  docker compose -f docker-compose.yml -f docker-compose.source.yml up -d --build
   echo ">> Done. Check status with:  docker compose ps"
 fi

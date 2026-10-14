@@ -173,10 +173,12 @@ The Dockerfile uses a four-stage build:
 ### Run
 
 ```bash
-docker compose up -d --build
+docker compose -f docker-compose.yml -f docker-compose.source.yml up -d --build
 ```
 
-`--build` matters here, not just on first run — `NEXT_PUBLIC_RELAY_URL` (and any other `NEXT_PUBLIC_*` var) is baked into the client bundle at build time (see that variable's row above), so a plain `docker compose up -d` after editing `.env` will keep serving whatever was baked into the last-built image.
+This builds from source — the base `docker-compose.yml` runs the published image
+(`image:`) instead, so the `docker-compose.source.yml` override swaps in the
+`build:` block. `--build` matters on every run — `NEXT_PUBLIC_RELAY_URL` (and any other `NEXT_PUBLIC_*` var) is baked into the client bundle at build time (see that variable's row above), so a plain `up -d` after editing `.env` will keep serving whatever was baked into the last-built image.
 
 This starts two services:
 

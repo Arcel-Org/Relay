@@ -1,36 +1,30 @@
 # Relay — self-hosted post-quantum encrypted messaging.
-#   docker compose up -d                          # app (:3000) + relay (:8080)
-#   docker compose -f docker-compose.turn.yml up -d   # + coturn for calls (optional)
-# Secrets come from .env — generate via scripts/quickstart.sh (or setup.sh).
-# Both ports bind to loopback; put a TLS-terminating reverse proxy in front.
-# Docs: docs/DEPLOY.md
-
-x-common: &common
-  restart: unless-stopped
-  env_file: .env
-  volumes:
-    - app-data:/app/.data
-  networks: [default, proxy-net]
-  logging:
-    driver: json-file
-    options: { max-size: "10m", max-file: "3" }
-  ulimits:
-    nofile: { soft: 65536, hard: 65536 }
-  security_opt: ["no-new-privileges:true"]
-  cap_drop: ["ALL"]
-  deploy:
-    resources:
-      limits: { cpus: "2", memory: 2G }
+#
+#   docker compose up -d
+#   docker compose up -d -f docker-compose.turn.yml   # + coturn for calls (optional)
+#
+# Runs from the published image (clone-free). To build from source instead,
+# add -f docker-compose.source.yml. Secrets come from .env — generate via
+# scripts/quickstart.sh (or setup.sh). Ports bind to loopback; put a
+# TLS-terminating reverse proxy in front. Docs: docs/DEPLOY.md
 
 services:
   app:
-    <<: *common
-    build:
-      context: .
-      args:
-        NEXT_PUBLIC_RELAY_URL: ${NEXT_PUBLIC_RELAY_URL:?set NEXT_PUBLIC_RELAY_URL in .env (docs/DEPLOY.md §2)}
+    image: ${RELAY_IMAGE:-ghcr.io/arcel-org/relay:latest}
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - app-data:/app/.data
+    networks: [default, proxy-net]
     ports:
       - "127.0.0.1:3000:3000"
+    ulimits:
+      nofile: { soft: 65536, hard: 65536 }
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
     environment:
       NODE_ENV: production
       PORT: "3000"
@@ -49,13 +43,21 @@ services:
       start_period: 15s
 
   relay:
-    <<: *common
-    build:
-      context: .
-      args:
-        NEXT_PUBLIC_RELAY_URL: ${NEXT_PUBLIC_RELAY_URL:?set NEXT_PUBLIC_RELAY_URL in .env (docs/DEPLOY.md §2)}
+    image: ${RELAY_IMAGE:-ghcr.io/arcel-org/relay:latest}
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - app-data:/app/.data
+    networks: [default, proxy-net]
     ports:
       - "127.0.0.1:8080:8080"
+    ulimits:
+      nofile: { soft: 65536, hard: 65536 }
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
     environment:
       NODE_ENV: production
       RELAY_PORT: "8080"
