@@ -11,6 +11,8 @@ on:
   push:
     branches: [master]
     tags: ['v*']
+  workflow_dispatch:
+    # Manual re-publish ("Run workflow" in the Actions tab) without a code change.
 
 permissions:
   contents: read
