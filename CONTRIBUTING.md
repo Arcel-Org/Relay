@@ -11,10 +11,10 @@ This grants Arcel LLC the right to include your contribution in both the
 open-source releases (MIT for the web client, AGPL-3.0 for the relay server)
 and Arcel's commercial licenses.
 
-Signing is quick: if the [CLA Assistant](https://cla-assistant.io/) bot is
-installed it will prompt you on your pull request; otherwise email
-`legal@arcel.org` per the instructions in the CLA document. Contributions
-cannot be merged until you've signed.
+Signing is automatic: every pull request runs the CLA bot, which posts a
+comment telling you exactly what to reply (the standard phrase is "I have
+read the CLA Document and I hereby sign the CLA"). Contributions cannot be
+merged until you've signed — or email `legal@arcel.org` to sign out of band.
 
 ## Ground rules
 
