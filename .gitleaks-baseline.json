@@ -22,8 +22,8 @@
  {
   "RuleID": "generic-api-key",
   "Description": "Detected a Generic API Key, potentially exposing access to various services and sensitive operations.",
-  "StartLine": 200,
-  "EndLine": 200,
+  "StartLine": 213,
+  "EndLine": 213,
   "StartColumn": 21,
   "EndColumn": 52,
   "Match": "key rotation, ChaCha20-Poly1305 ",
@@ -37,7 +37,7 @@
   "Date": "",
   "Message": "",
   "Tags": [],
-  "Fingerprint": "README.md:generic-api-key:200"
+  "Fingerprint": "README.md:generic-api-key:213"
  },
  {
   "RuleID": "generic-api-key",
