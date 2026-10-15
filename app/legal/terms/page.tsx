@@ -64,7 +64,7 @@ export default function TermsPage() {
 
       <h2 id="who">1. Who we are</h2>
       <p>
-        Arcel Relay is operated by an entity formed under the laws of the State of Wyoming, United States of America (the &quot;<strong>Operator</strong>&quot;). Relay infrastructure is currently hosted in the Republic of Finland. The Operator&apos;s registered agent is listed in the Wyoming Secretary of State&apos;s public filings. Legal correspondence: <code>legal@arcel.org</code>.
+        Arcel Relay is operated by an entity formed under the laws of the State of New Mexico, United States of America (the &quot;<strong>Operator</strong>&quot;). Relay infrastructure is currently hosted in the Republic of Finland. The Operator&apos;s registered agent is listed in the New Mexico Secretary of State&apos;s public filings. Legal correspondence: <code>legal@arcel.org</code>.
       </p>
 
       <h2 id="what">2. What Arcel is — and isn&apos;t</h2>
@@ -192,7 +192,7 @@ export default function TermsPage() {
 
       <h2 id="governing-law">16. Governing law and dispute resolution</h2>
       <p>
-        These Terms are governed by the laws of the State of Wyoming, USA, without regard to its conflict-of-laws rules. Any dispute arising out of or relating to these Terms or Arcel shall be resolved by binding individual arbitration administered by the American Arbitration Association under its Consumer Arbitration Rules, in Laramie, Wyoming, or via videoconference.
+        These Terms are governed by the laws of the State of New Mexico, USA, without regard to its conflict-of-laws rules. Any dispute arising out of or relating to these Terms or Arcel shall be resolved by binding individual arbitration administered by the American Arbitration Association under its Consumer Arbitration Rules, in the State of New Mexico, or via videoconference.
       </p>
       <p>
         You and the Operator each waive the right to trial by jury and the right to participate in a class action. Either party may seek injunctive or equitable relief in a court of competent jurisdiction for infringement of intellectual property or unauthorized access to the service. Nothing in these Terms limits a consumer&apos;s right under local law to bring a small-claims action in their place of residence.

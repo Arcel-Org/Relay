@@ -217,7 +217,7 @@ export default function PrivacyPage() {
 
       <h2 id="contact">13. Contact</h2>
       <p>
-        Privacy inquiries: <code>privacy@arcel.org</code>. General legal: <code>legal@arcel.org</code>. Security disclosures: <code>security@arcel.org</code>. Postal correspondence: Arcel Relay, care of our registered agent on file with the Wyoming Secretary of State.
+        Privacy inquiries: <code>privacy@arcel.org</code>. General legal: <code>legal@arcel.org</code>. Security disclosures: <code>security@arcel.org</code>. Postal correspondence: Arcel Relay, care of our registered agent on file with the New Mexico Secretary of State.
       </p>
     </>
   );

@@ -1,0 +1,37 @@
+name: cla
+
+# Self-hosted Contributor License Agreement enforcement.
+# Runs cla-bot.py from the Arcel-Org/cla repo on every PR: posts a "CLA"
+# status (required by branch protection) and prompts the author to sign;
+# when they reply with the agreement phrase, the signature is recorded in
+# the cla repo and the status flips green.
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+  issue_comment:
+    types: [created]
+
+permissions:
+  statuses: write
+  pull-requests: write
+  contents: read
+
+jobs:
+  cla:
+    if: github.event_name == 'pull_request' || github.event.issue.pull_request
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch CLA bot
+        run: |
+          curl -fsSL -o cla-bot.py https://raw.githubusercontent.com/Arcel-Org/cla/main/cla-bot.py
+      - name: Run CLA bot
+        env:
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+          EVENT: ${{ github.event_name }}
+          COMMENTER: ${{ github.event.comment.user.login }}
+          BODY: ${{ github.event.comment.body }}
+          GH_TOKEN: ${{ github.token }}
+          CLA_TOKEN: ${{ secrets.ARCEL_CLA_TOKEN }}
+        run: python3 cla-bot.py
