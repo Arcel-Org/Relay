@@ -3,6 +3,19 @@
 Thanks for taking the time. Relay is open source — issues, PRs, and
 reviews are all welcome.
 
+## Contributor License Agreement
+
+Before your contribution can be merged, you must sign the
+[**Arcel Contributor License Agreement (CLA)**](https://github.com/Arcel-Org/cla/blob/main/cla.md).
+This grants Arcel LLC the right to include your contribution in both the
+open-source releases (MIT for the web client, AGPL-3.0 for the relay server)
+and Arcel's commercial licenses.
+
+Signing is quick: if the [CLA Assistant](https://cla-assistant.io/) bot is
+installed it will prompt you on your pull request; otherwise email
+`legal@arcel.org` per the instructions in the CLA document. Contributions
+cannot be merged until you've signed.
+
 ## Ground rules
 
 - **Code of conduct.** All participation is governed by our
