@@ -141,6 +141,21 @@ curl http://127.0.0.1:3000/api/status
 Then sign up at `https://relay.example.com`, and you have a post-quantum,
 end-to-end-encrypted messenger you actually control.
 
+### Calls & TURN (optional)
+
+Voice/video calls work out of the box over WebRTC (STUN + direct
+peer-to-peer), but in direct P2P the two callers' real IP addresses are
+visible to each other. To route call media through your server instead
+(hiding both IPs), enable the bundled coturn:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.turn.yml up -d
+```
+
+It needs a `TURN_SECRET` in `relay/.env` (`openssl rand -hex 32`). The app
+mints short-lived (6h) per-call TURN credentials server-side, so there is no
+long-lived client-exposed credential to leak.
+
 ---
 
 ## Updating — never breaks your setup
@@ -371,7 +386,8 @@ relay/
 │   └── relay-schemas.ts    # Wire message schemas
 ├── scripts/                # quickstart.sh (installer), setup.sh, update.sh, backup.sh
 ├── docs/                   # DEPLOY, PROTOCOL, API, crypto review
-├── docker-compose.yml      # app + relay (+ optional TURN)
+├── docker-compose.yml      # app + relay
+├── docker-compose.turn.yml # optional coturn for call media relay
 ├── Dockerfile
 └── .github/                # CI workflows (lint, type-check, test, build, secret scan)
 ```

@@ -5,6 +5,8 @@ reviews are all welcome.
 
 ## Ground rules
 
+- **Code of conduct.** All participation is governed by our
+  [Code of Conduct](CODE_OF_CONDUCT.md) — be kind, be respectful.
 - **Security bug?** See [SECURITY.md](SECURITY.md) — report privately, don't
   file a public issue.
 - **One logical change per PR.** It keeps history readable and review honest.
@@ -31,9 +33,9 @@ the unit tests, and both production builds on every PR.
 
 ## What to work on
 
-Feature gaps are tracked in [FEATURES.md](FEATURES.md). The "Known Gaps"
-section of the README lists smaller, well-scoped items. If you want to pick
-up something bigger, open an issue first so we can agree on the approach
+Feature gaps are tracked in [FEATURES.md](FEATURES.md); the README's
+[Roadmap](README.md#roadmap) lists smaller, well-scoped items. If you want to
+pick up something bigger, open an issue first so we can agree on the approach
 before you write a lot of code.
 
 ## Commit style

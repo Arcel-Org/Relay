@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/Arcel-Org/Relay/security/advisories/new
+    about: Report security issues privately — see SECURITY.md.
+  - name: Arcel contact
+    url: mailto:contact@arcel.org
+    about: General questions or other Arcel projects.

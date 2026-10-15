@@ -1,0 +1,60 @@
+name: Bug report
+description: Report a bug in Relay
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this bug report! For security
+        issues, **do not** file an issue — email [security@arcel.org](mailto:security@arcel.org)
+        or open a [private advisory](https://github.com/Arcel-Org/Relay/security/advisories/new).
+  - type: dropdown
+    id: deployment
+    attributes:
+      label: Deployment
+      description: How are you running Relay?
+      options:
+        - Docker Compose (prebuilt image, quickstart.sh)
+        - Docker Compose (built from source)
+        - Bare metal / PM2
+        - Other / not sure
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Relay image tag or git commit (e.g. `v0.1.0`, or the hash shown in the footer)
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you expect to happen, and what actually happened?
+      placeholder: "When I … the app … instead of …"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to …
+        2. Click …
+        3. See error
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Output from `docker compose logs app` / `docker compose logs relay` (or your runtime's logs). Redact anything sensitive.
+      render: shell
+  - type: dropdown
+    id: impact
+    attributes:
+      label: Impact
+      options:
+        - Blocks my whole deployment
+        - Core feature broken (messaging, auth)
+        - Minor issue / cosmetic
+        - Security concern (use private disclosure instead!)

@@ -1,0 +1,42 @@
+name: Feature request
+description: Suggest a feature or improvement for Relay
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting! Check [FEATURES.md](https://github.com/Arcel-Org/Relay/blob/master/FEATURES.md)
+        and the open issues first — the idea may already be tracked.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the user need or pain point, not just the feature name.
+      placeholder: "When I … it's hard to … because …"
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: How should it work?
+    validations:
+      required: true
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope
+      options:
+        - Web app / UI
+        - Messaging / protocol
+        - Auth / security
+        - Deployment / operations
+        - Docs
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you've considered
+      description: Any workarounds or related approaches?
