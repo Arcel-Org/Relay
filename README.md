@@ -67,15 +67,22 @@ the internet. You:
 
 Both service ports are loopback-bound, so there is no firewall surface for
 the app itself — only your reverse proxy listens on the public interface.
-Copy-paste configs below. The relay's WebSocket uses the **same origin and
-port** as the page (`wss://relay.example.com`), and the app server tunnels
-WS upgrades to the relay internally — so a single reverse-proxy route is
-all you need.
+Copy-paste configs below. The WebSocket uses the **same origin and port** as
+the page (`wss://relay.example.com`), so the proxy must send **HTTP to the
+app and WebSocket upgrades to the relay** — the two configs below do exactly
+that.
 
-**nginx** (the `Upgrade`/`Connection` headers are **required** — without
-them the WebSocket dies at the proxy)
+**nginx** (the `map` + `Upgrade`/`Connection` headers are **required** — a
+plain `proxy_pass` to the app would send the WebSocket to `next-server`,
+which has no relay tunnel in the containerised deployment)
 
 ```nginx
+# Must live in the http {} block, above the server {} below.
+map $http_upgrade $relay_backend {
+    default    http://127.0.0.1:3000;   # normal HTTP   → app
+    websocket  http://127.0.0.1:8080;   # WS upgrade    → relay
+}
+
 server {
     listen 443 ssl;
     server_name relay.example.com;
@@ -84,10 +91,10 @@ server {
     ssl_certificate_key /etc/letsencrypt/live/relay.example.com/privkey.pem;
 
     location / {
-        proxy_pass http://127.0.0.1:3000;
+        proxy_pass $relay_backend;
         proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;      # wss tunnel (relay)
-        proxy_set_header Connection "upgrade";      #   → tunnelled to :8080
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -97,19 +104,25 @@ server {
 }
 ```
 
-**Caddy** (automatic HTTPS, WebSocket support built in — this is all you
-need)
+**Caddy** (automatic HTTPS; WebSocket routed to the relay via an `@ws`
+matcher)
 
 ```caddyfile
 relay.example.com {
-    reverse_proxy 127.0.0.1:3000
+    @ws header Connection *Upgrade*
+    handle @ws {
+        reverse_proxy 127.0.0.1:8080
+    }
+    handle {
+        reverse_proxy 127.0.0.1:3000
+    }
 }
 ```
 
-> For very large deployments, the relay also listens on `/ws` directly —
-> you can add an explicit `location /ws` → `http://127.0.0.1:8080` route to
-> bypass the app's internal tunnel. It's not required; the single-route
-> configs above are correct and recommended.
+> Relay's session cookie is `Secure` and the client connects over `wss://`,
+> so TLS is **required** — the proxy must terminate HTTPS (WebAuthn passkeys
+> also need a secure context). Set `TRUST_PROXY_HEADERS=true` in `relay/.env`
+> once the proxy is in front.
 
 > The configs above assume the default host ports. If you changed
 > `APP_HOST_PORT` or `RELAY_HOST_PORT` in `relay/.env`, point the proxy at
